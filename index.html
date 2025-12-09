@@ -582,22 +582,31 @@
                 auth = getAuth(app);
                 setLogLevel('Debug');
 
-                // Carica la lista delle carte nel database se non esiste (simulazione)
-                const cardsCollectionRef = collection(db, `artifacts/${appId}/public/data`, 'cards');
-                const cardsSnapshot = await getDocs(cardsCollectionRef);
-                if (cardsSnapshot.empty) {
-                     // Popola la collezione 'cards' solo la prima volta
-                    console.log("Popolamento collezione carte...");
-                    for (const name in __CARD_DEFINITIONS) {
-                        const card = __CARD_DEFINITIONS[name];
-                        await setDoc(doc(cardsCollectionRef, card.id), card);
-                    }
-                    console.log("Collezione carte popolata.");
-                }
+                // FIX: Spostata la logica di caricamento carte dentro onAuthStateChanged per evitare errori di permessi
+                // prima del login.
 
-                onAuthStateChanged(auth, (user) => {
+                onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
+
+                        // Carica la lista delle carte nel database se non esiste (simulazione)
+                        // Eseguito SOLO dopo che l'utente è autenticato per rispettare le regole di sicurezza
+                        try {
+                            const cardsCollectionRef = collection(db, `artifacts/${appId}/public/data`, 'cards');
+                            const cardsSnapshot = await getDocs(cardsCollectionRef);
+                            if (cardsSnapshot.empty) {
+                                console.log("Popolamento collezione carte...");
+                                for (const name in __CARD_DEFINITIONS) {
+                                    const card = __CARD_DEFINITIONS[name];
+                                    await setDoc(doc(cardsCollectionRef, card.id), card);
+                                }
+                                console.log("Collezione carte popolata.");
+                            }
+                        } catch (e) {
+                            console.warn("Impossibile inizializzare carte DB (probabilmente regole di sicurezza o già presenti):", e);
+                            // Continua comunque, useremo le definizioni locali se necessario
+                        }
+
                         loadUserAndListen(userId);
                     } else {
                         // Non dovrebbe accadere se l'autenticazione è corretta
@@ -618,6 +627,7 @@
         };
 
         // --- Logica di Gioco e Funzioni UI ---
+        // ... (resto del codice invariato)
 
         const createCardHTML = (cardDef, deckAction = null) => {
             const currentCardData = userData.deck.find(c => c.id === cardDef.id) || cardDef; // Usa i dati di gioco se disponibili
