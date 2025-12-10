@@ -73,7 +73,7 @@
     <div id="app" class="p-4 sm:p-8 game-screen-container">
         <div id="loading-screen" class="flex flex-col items-center justify-center min-h-screen text-xl">
             <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
-            <p class="mt-4">Caricamento in corso...</p>
+            <p class="mt-4">Caricamento in corso... (v1.1)</p>
         </div>
 
         <!-- Schermo Principale/Menu -->
@@ -511,7 +511,8 @@
                 return;
             }
             try {
-                const userDocRef = doc(db, `artifacts/${appId}/users/${userId}`, 'profile');
+                // FIXED: Percorso corretto con numero pari di segmenti
+                const userDocRef = doc(db, `artifacts/${appId}/users/${userId}/data/profile`);
                 await updateDoc(userDocRef, updates);
                 userData = { ...userData, ...updates }; // Aggiorna la variabile locale
                 updateUserInfo();
@@ -536,7 +537,8 @@
 
         const loadUserAndListen = async (uid) => {
             try {
-                const userDocRef = doc(db, `artifacts/${appId}/users/${uid}`, 'profile');
+                // FIXED: Percorso corretto con numero pari di segmenti
+                const userDocRef = doc(db, `artifacts/${appId}/users/${uid}/data/profile`);
                 
                 // onSnapshot per l'aggiornamento in tempo reale
                 onSnapshot(userDocRef, (docSnap) => {
