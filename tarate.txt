@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gioco di Carte a Turni - Cosmic Clash</title>
+    <!-- Caricamento di Tailwind CSS per uno stile moderno e reattivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Stile personalizzato per l'aspetto del gioco */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117; /* Sfondo scuro */
+            color: #c9d1d9;
+        }
+        .card-container {
+            width: 150px;
+            height: 220px;
+            perspective: 1000px;
+            cursor: pointer;
+        }
+        .card {
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            border: 3px solid transparent;
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 10px;
+            padding: 8px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-front {
+            background: linear-gradient(145deg, #1f2730, #161c24);
+        }
+        .card-back {
+            background-color: #2c5282;
+            transform: rotateY(180deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+        .ability-guerriero { border-color: #ef4444; }
+        .ability-lanciatore { border-color: #3b82f6; }
+        .ability-curatore { border-color: #10b981; }
+        .ability-protettivo { border-color: #f59e0b; }
+        .ability-mago { border-color: #8b5cf6; }
+        .ability-alieno { border-color: #ec4899; }
+
+        .game-screen-container {
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="p-4 sm:p-8 game-screen-container">
+        <div id="loading-screen" class="flex flex-col items-center justify-center min-h-screen text-xl">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+            <p class="mt-4">Caricamento in corso...</p>
+        </div>
+
+        <!-- Schermo Principale/Menu -->
+        <div id="main-menu" class="hidden max-w-4xl mx-auto">
+            <div class="flex justify-between items-center mb-6 p-4 bg-gray-800 rounded-lg shadow-xl">
+                <h1 class="text-3xl font-bold text-blue-400">Cosmic Clash</h1>
+                <div>
+                    <span id="user-info" class="text-sm bg-gray-700 p-2 rounded-full mr-4"></span>
+                    <span id="user-coins" class="text-lg font-bold bg-yellow-600 text-yellow-100 px-4 py-2 rounded-full shadow-lg"></span>
+                </div>
+            </div>
+
+            <div id="nickname-setup" class="bg-gray-800 p-6 rounded-xl shadow-2xl mb-6">
+                <h2 class="text-xl font-semibold mb-3">Imposta Nickname</h2>
+                <input type="text" id="nickname-input" placeholder="Il tuo Nickname" class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:border-blue-500">
+                <button id="set-nickname-btn" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md">Salva Nickname</button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <button onclick="showScreen('deck-manager')" class="menu-btn bg-indigo-600 hover:bg-indigo-700 p-6 rounded-xl text-xl font-bold shadow-2xl transition duration-300 transform hover:scale-105">
+                    Gestione Deck
+                </button>
+                <button onclick="showScreen('shop')" class="menu-btn bg-yellow-600 hover:bg-yellow-700 p-6 rounded-xl text-xl font-bold shadow-2xl transition duration-300 transform hover:scale-105">
+                    Shop di Carte
+                </button>
+                <button onclick="showScreen('create-room')" class="menu-btn bg-green-600 hover:bg-green-700 p-6 rounded-xl text-xl font-bold shadow-2xl transition duration-300 transform hover:scale-105">
+                    Crea Stanza
+                </button>
+                <button onclick="showScreen('join-room')" class="menu-btn bg-red-600 hover:bg-red-700 p-6 rounded-xl text-xl font-bold shadow-2xl transition duration-300 transform hover:scale-105">
+                    Unisciti a Stanza
+                </button>
+            </div>
+
+            <div id="status-message" class="mt-6 p-4 text-center text-lg rounded-lg bg-gray-700 hidden"></div>
+        </div>
+
+        <!-- Gestione Deck -->
+        <div id="deck-manager" class="hidden max-w-5xl mx-auto">
+            <h2 class="text-3xl font-bold mb-6 text-center text-blue-400">Gestione Deck (Max 10 Carte)</h2>
+            <div class="flex justify-between items-center mb-4">
+                <button onclick="showScreen('main-menu')" class="bg-gray-600 hover:bg-gray-700 p-2 rounded-lg transition duration-200">← Torna al Menu</button>
+                <div class="text-lg font-semibold">Carte nel Deck: <span id="deck-count" class="text-yellow-400">0</span>/10</div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Carte Attuali nel Deck -->
+                <div class="bg-gray-800 p-4 rounded-xl shadow-2xl">
+                    <h3 class="text-xl font-semibold mb-4 text-center">Il tuo Deck Attuale</h3>
+                    <div id="current-deck-cards" class="flex flex-wrap gap-4 justify-center min-h-[240px]">
+                        <!-- Carte del deck verranno iniettate qui -->
+                        <p class="text-gray-500 mt-8">Deck vuoto. Aggiungi carte dalla tua Collezione.</p>
+                    </div>
+                </div>
+
+                <!-- Collezione di Carte Sbloccate -->
+                <div class="bg-gray-800 p-4 rounded-xl shadow-2xl">
+                    <h3 class="text-xl font-semibold mb-4 text-center">La tua Collezione (<span id="collection-count">0</span> carte)</h3>
+                    <div id="collection-cards" class="flex flex-wrap gap-4 justify-center min-h-[240px]">
+                        <!-- Carte della collezione verranno iniettate qui -->
+                    </div>
+                </div>
+            </div>
+            <div id="deck-error-message" class="mt-4 p-3 bg-red-800 rounded-lg text-center hidden"></div>
+        </div>
+
+        <!-- Shop -->
+        <div id="shop" class="hidden max-w-5xl mx-auto">
+            <h2 class="text-3xl font-bold mb-6 text-center text-yellow-400">Shop di Carte</h2>
+            <div class="flex justify-between items-center mb-6">
+                <button onclick="showScreen('main-menu')" class="bg-gray-600 hover:bg-gray-700 p-2 rounded-lg transition duration-200">← Torna al Menu</button>
+                <div class="text-lg font-bold">Monete: <span id="shop-coins" class="text-yellow-400">0</span></div>
+            </div>
+
+            <div id="shop-cards-list" class="flex flex-wrap gap-6 justify-center">
+                <!-- Carte in vendita verranno iniettate qui -->
+            </div>
+            <div id="shop-message" class="mt-6 p-4 text-center rounded-lg bg-gray-700 hidden"></div>
+        </div>
+
+        <!-- Creazione Stanza -->
+        <div id="create-room" class="hidden max-w-2xl mx-auto bg-gray-800 p-8 rounded-xl shadow-2xl">
+            <h2 class="text-3xl font-bold mb-6 text-center text-green-400">Crea Stanza</h2>
+            <button onclick="showScreen('main-menu')" class="bg-gray-600 hover:bg-gray-700 p-2 rounded-lg transition duration-200 mb-6">← Torna al Menu</button>
+
+            <label class="block mb-4">
+                <span class="text-white">Modalità di Gioco:</span>
+                <select id="game-mode" class="mt-1 block w-full p-3 rounded-lg bg-gray-700 border border-gray-600">
+                    <option value="1v1">1 vs 1</option>
+                    <option value="ffa">FFA (Fino a 4 Giocatori)</option>
+                </select>
+            </label>
+
+            <label class="block mb-4">
+                <span class="text-white">Aggiungi CPU?</span>
+                <select id="cpu-enabled" class="mt-1 block w-full p-3 rounded-lg bg-gray-700 border border-gray-600">
+                    <option value="no">No</option>
+                    <option value="yes">Sì</option>
+                </select>
+            </label>
+
+            <label class="block mb-4">
+                <span class="text-white">Carte Totali nel Deck (Min 1, Max 10):</span>
+                <input type="number" id="deck-size-limit" value="10" min="1" max="10" class="mt-1 block w-full p-3 rounded-lg bg-gray-700 border border-gray-600">
+            </label>
+
+            <label class="block mb-6">
+                <span class="text-white">Carte in Campo per Persona (Min 1, Max 3):</span>
+                <input type="number" id="field-size-limit" value="3" min="1" max="3" class="mt-1 block w-full p-3 rounded-lg bg-gray-700 border border-gray-600">
+            </label>
+
+            <button id="create-room-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md">Crea Stanza</button>
+            <div id="room-status" class="mt-4 p-3 text-center rounded-lg bg-gray-700 hidden"></div>
+        </div>
+
+        <!-- Unisciti a Stanza -->
+        <div id="join-room" class="hidden max-w-2xl mx-auto bg-gray-800 p-8 rounded-xl shadow-2xl">
+            <h2 class="text-3xl font-bold mb-6 text-center text-red-400">Unisciti a Stanza</h2>
+            <button onclick="showScreen('main-menu')" class="bg-gray-600 hover:bg-gray-700 p-2 rounded-lg transition duration-200 mb-6">← Torna al Menu</button>
+
+            <label class="block mb-6">
+                <span class="text-white">ID Stanza:</span>
+                <input type="text" id="join-room-id" placeholder="Inserisci ID Stanza" class="mt-1 block w-full p-3 rounded-lg bg-gray-700 border border-gray-600">
+            </label>
+
+            <button id="join-room-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md">Unisciti</button>
+            <div id="join-room-status" class="mt-4 p-3 text-center rounded-lg bg-gray-700 hidden"></div>
+        </div>
+
+        <!-- Schermo di Attesa (Lobby) -->
+        <div id="lobby" class="hidden max-w-4xl mx-auto bg-gray-800 p-8 rounded-xl shadow-2xl">
+            <h2 class="text-3xl font-bold mb-6 text-center text-blue-400">Lobby di Gioco</h2>
+            <p id="lobby-id" class="text-xl font-mono text-gray-400 mb-4 text-center"></p>
+
+            <div id="lobby-players" class="mb-6 flex flex-col gap-3">
+                <h3 class="text-xl font-semibold mb-2">Giocatori Attuali:</h3>
+                <!-- Lista giocatori -->
+            </div>
+
+            <div id="lobby-settings" class="mb-6 p-4 bg-gray-700 rounded-lg">
+                <h3 class="text-xl font-semibold mb-2">Impostazioni:</h3>
+                <!-- Impostazioni stanza -->
+            </div>
+
+            <button id="start-game-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md hidden">Avvia Partita (Host)</button>
+            <p id="wait-message" class="text-center text-yellow-400 mt-3 hidden">In attesa che l'Host avvii la partita...</p>
+            <button id="leave-lobby-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md mt-4">Abbandona Lobby</button>
+            <div id="lobby-message" class="mt-4 p-3 text-center rounded-lg bg-gray-700 hidden"></div>
+        </div>
+
+        <!-- Schermo di Gioco -->
+        <div id="game-screen" class="hidden w-full mx-auto">
+            <h2 class="text-3xl font-bold mb-4 text-center text-blue-400">Arena di Battaglia</h2>
+            <div class="flex justify-between items-center mb-6 p-3 bg-gray-800 rounded-lg shadow-xl">
+                <div class="flex-1">Turno di: <span id="current-player-name" class="font-bold text-yellow-400"></span></div>
+                <div class="flex-1 text-center">Modalità: <span id="game-mode-display" class="font-bold"></span></div>
+                <div class="flex-1 text-right">Mazzo Rimanente: <span id="deck-left-count" class="font-bold">0</span></div>
+            </div>
+
+            <!-- Campo di Gioco Avversari -->
+            <div id="opponents-field" class="flex flex-wrap justify-center gap-4 mb-8 p-4 bg-gray-800 rounded-xl shadow-inner">
+                <h3 class="w-full text-center text-xl font-semibold mb-2">Campi Avversari</h3>
+                <!-- Campi avversari verranno iniettati qui -->
+            </div>
+
+            <!-- Log delle Mosse -->
+            <div id="move-log" class="mb-6 max-h-40 overflow-y-auto p-3 bg-gray-900 rounded-lg text-sm">
+                <p class="text-gray-500">Inizio Partita...</p>
+            </div>
+
+            <!-- Carte sul Campo del Giocatore -->
+            <div id="player-field" class="flex justify-center gap-4 mb-6 p-4 bg-gray-800 rounded-xl shadow-2xl">
+                <h3 class="w-full text-center text-xl font-semibold mb-2 text-green-400">Il tuo Campo</h3>
+                <!-- Carte in campo del giocatore verranno iniettate qui -->
+            </div>
+
+            <!-- Area Azioni/Selezione Carta/Mossa -->
+            <div id="action-area" class="bg-gray-800 p-6 rounded-xl shadow-2xl">
+                <h3 class="text-xl font-semibold mb-4 text-center">Azioni</h3>
+
+                <!-- Stato di attesa/messaggi -->
+                <div id="game-message" class="p-3 text-center rounded-lg bg-blue-800 mb-4 hidden"></div>
+
+                <!-- 1. Selezione Carta di Sostituzione (Quando una carta muore) -->
+                <div id="select-replacement" class="hidden">
+                    <h4 class="text-lg font-bold mb-3 text-yellow-400">Scegli una carta dal Deck per sostituire <span id="defeated-card-name"></span></h4>
+                    <div id="replacement-deck-cards" class="flex flex-wrap gap-3 justify-center">
+                        <!-- Carte del deck verranno iniettate qui -->
+                    </div>
+                </div>
+
+                <!-- 2. Selezione Mossa e Bersaglio -->
+                <div id="select-move-target" class="hidden">
+                    <h4 class="text-lg font-bold mb-3 text-green-400">Seleziona la tua Carta e la Mossa</h4>
+                    <div class="flex flex-wrap justify-center gap-4 mb-4">
+                        <div id="active-card-selection" class="flex flex-col gap-2">
+                            <!-- Bottoni per la selezione della carta attiva -->
+                        </div>
+                    </div>
+
+                    <div id="move-selection" class="flex flex-col gap-2 mb-4">
+                        <h5 class="text-md font-semibold text-gray-400">Mosse di <span id="selected-card-move-name">...</span>:</h5>
+                        <!-- Bottoni per le mosse -->
+                    </div>
+
+                    <div id="target-selection" class="hidden">
+                        <h5 class="text-md font-semibold text-gray-400">Seleziona il Bersaglio (Avversario):</h5>
+                        <div id="target-buttons" class="flex flex-wrap gap-2 justify-center">
+                            <!-- Bottoni per i bersagli -->
+                        </div>
+                    </div>
+                    <button id="execute-move-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition duration-200 mt-4" disabled>Esegui Mossa</button>
+                </div>
+            </div>
+
+            <!-- Schermo Risultati Partita -->
+            <div id="game-results" class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center hidden">
+                <div class="bg-gray-800 p-8 rounded-xl shadow-2xl max-w-lg w-full text-center border-4 border-yellow-500">
+                    <h3 class="text-4xl font-extrabold mb-4 text-yellow-400">PARTITA FINITA!</h3>
+                    <p id="result-message" class="text-2xl mb-6"></p>
+
+                    <div class="text-left mb-6">
+                        <h4 class="text-xl font-bold mb-2 text-green-400">La tua Ricompensa:</h4>
+                        <ul id="rewards-list" class="list-disc list-inside ml-4">
+                            <!-- Ricompense -->
+                        </ul>
+                    </div>
+
+                    <button onclick="leaveGameSession()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition duration-200">Torna al Menu Principale</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // CONFIGURAZIONE REALE DELL'UTENTE (INSERITA AUTOMATICAMENTE)
+        const appId = "questo-fight-carte-v1";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyBdpG1mS6k-MLlRnvV6W186Wi6otxhpj-0",
+            authDomain: "questo-fight-carte.firebaseapp.com",
+            projectId: "questo-fight-carte",
+            storageBucket: "questo-fight-carte.firebasestorage.app",
+            messagingSenderId: "1097999779658",
+            appId: "1:1097999779658:web:2261972f9e9189626e63b3",
+            measurementId: "G-NRQDHRCZWW"
+        };
+        
+        // Per il web pubblico non usiamo token personalizzati, ma login anonimo
+        const initialAuthToken = null;
+
+        // Inizializzazione Firebase
+        let app, db, auth;
+        let userId = null;
+        let userData = null;
+        let cardDefinitions = {};
+        let currentRoomId = null;
+        let gameSessionListener = null;
+
+        // Struttura fittizia delle carte per superare il requisito delle 100 carte
+        const __BASE_CARD_LIST = [
+            { name: "Aang", img: "https://i.pinimg.com/736x/05/01/fc/0501fc8ed44f7bd4ad9e74d9bb959669.jpg", ability: "Mago" },
+            { name: "Ametista", img: "https://i.pinimg.com/736x/11/b5/05/11b5056b41f87fbe3120b68ed5dcfb09.jpg", ability: "Protettivo" },
+            { name: "Barry", img: "https://i.pinimg.com/736x/ae/01/6c/ae016c6828620c2b981bbf92fd1219d4.jpg", ability: "Guerriero" },
+            { name: "Beast Boy", img: "https://i.pinimg.com/736x/65/aa/b8/65aab8f95425cdff2010d6224b0a6ea3.jpg", ability: "Alieno" },
+            { name: "Ben 10", img: "https://i.pinimg.com/736x/ad/5c/cd/ad5ccdba073abda30c152f7eac48447b.jpg", ability: "Alieno" },
+            { name: "Bloom", img: "https://i.pinimg.com/736x/2a/0e/3d/2a0e3d2c81ef601a4dc4647fe888b1a0.jpg", ability: "Mago" },
+            { name: "Bowser", img: "https://i.pinimg.com/1200x/cf/3f/ec/cf3fec1f6b9334e0255065f150fa97a9.jpg", ability: "Guerriero" },
+            { name: "Bugs Bunny", img: "https://i.pinimg.com/1200x/ff/d1/66/ffd166e976132eb05bf59b5339a01931.jpg", ability: "Lanciatore" },
+            { name: "Camilla", img: "https://i.pinimg.com/1200x/e3/82/72/e382726630f62a8a716009aab16cafc6.jpg", ability: "Curatore" },
+            { name: "Carlos Oliveira", img: "https://i.pinimg.com/736x/9c/d7/61/9cd7611ff4aaceecd802b75a2d2ad1f6.jpg", ability: "Guerriero" },
+            { name: "Cell Perfetto", img: "https://i.pinimg.com/736x/cd/e2/4c/cde24ca1463975e32a513dcd96d20cae.jpg", ability: "Alieno" },
+            { name: "Chat Noir", img: "https://i.pinimg.com/736x/c3/ed/77/c3ed7755f4cbee4cd34316139d132597.jpg", ability: "Lanciatore" },
+            { name: "Chef Hatchet", img: "https://i.pinimg.com/1200x/4f/7c/8b/4f7c8bc30de9875dba940c17fcd6264a.jpg", ability: "Protettivo" },
+            { name: "Corvina", img: "https://i.pinimg.com/736x/fc/e3/30/fce330b50ce9cbf53287e441be15d597.jpg", ability: "Mago" },
+            { name: "Cosmo", img: "https://i.pinimg.com/736x/47/22/99/472299b4c669c052c662df1730403d83.jpg", ability: "Curatore" },
+            { name: "Cyborg", img: "https://i.pinimg.com/736x/bc/ef/b9/bcefb901b8a25aaf2716e142e9cf89a9.jpg", ability: "Guerriero" },
+            { name: "Daffy Duck", img: "https://i.pinimg.com/736x/be/a3/7e/bea37edf64883f0cebaa6899c9fbad71.jpg", ability: "Lanciatore" },
+            { name: "Darwin Watterson", img: "https://i.pinimg.com/736x/44/ad/5f/44ad5f25f6dae6e19757b15346684583.jpg", ability: "Protettivo" },
+            { name: "Conan", img: "https://i.pinimg.com/736x/77/e4/e9/77e4e9ddb6f514b151c15d16b0cf207d.jpg", ability: "Mago" },
+            { name: "Doraemon", img: "https://i.pinimg.com/736x/b1/75/de/b175de80fb0f5ca9b5230f0b12f3c13c.jpg", ability: "Alieno" },
+            { name: "Elsa", img: "https://i.pinimg.com/736x/0a/e9/e8/0ae9e8606e505a0315e105b73a96e387.jpg", ability: "Mago" },
+            { name: "Empoleon", img: "https://i.pinimg.com/1200x/b2/52/ea/b252eac40b5327d0691ddf9e6c9ec7d3.jpg", ability: "Lanciatore" },
+            { name: "Eric Cartman", img: "https://i.pinimg.com/736x/31/3a/b7/313ab7f6d385f544ffc90681ae08c117.jpg", ability: "Protettivo" },
+            { name: "Ferb", img: "https://i.pinimg.com/736x/63/04/d3/6304d368076442119f65936ca107067c.jpg", ability: "Curatore" },
+            { name: "Fiore", img: "https://i.pinimg.com/736x/68/af/9d/68af9d02e5917aec2649f4efc32fad75.jpg", ability: "Mago" },
+            { name: "Finn", img: "https://i.pinimg.com/736x/29/83/75/298375aacfcc94f3310fad5578000f6d.jpg", ability: "Guerriero" },
+            { name: "Francine Smith", img: "https://i.pinimg.com/736x/18/c1/d2/18c1d2489a64b1b4f9cc78318e62da94.jpg", ability: "Protettivo" },
+            { name: "Garnet", img: "https://i.pinimg.com/736x/65/9b/d2/659bd260c80c7ecb1e2c1d7c7c3e9508.jpg", ability: "Guerriero" },
+            { name: "Ganyu", img: "https://i.pinimg.com/736x/46/db/7e/46db7e6db045ac28eff3a551e7754d50.jpg", ability: "Lanciatore" },
+            { name: "Giyu", img: "https://i.pinimg.com/736x/fa/78/dd/fa78ddb22728f7ae661b3c18615d1d68.jpg", ability: "Guerriero" },
+            { name: "Grizzly", img: "https://i.pinimg.com/1200x/2c/0a/98/2c0a980377e0a6befa3b4e7fb50be361.jpg", ability: "Protettivo" },
+            { name: "Gumball", img: "https://i.pinimg.com/736x/af/61/0f/af610f55e819f4bd3f37e5001a2b19ee.jpg", ability: "Lanciatore" },
+            { name: "Gwen", img: "https://i.pinimg.com/736x/3e/67/48/3e6748b9ba3f30cda452f7209bba5037.jpg", ability: "Mago" },
+            { name: "Harley Quinn", img: "https://i.pinimg.com/736x/96/f6/79/96f679f3aef0b96235ed23dd023f164d.jpg", ability: "Lanciatore" },
+            { name: "Homer Simpson", img: "https://i.pinimg.com/1200x/1d/b9/18/1db918fe2b5dff69f35186ad20cc1752.jpg", ability: "Protettivo" },
+            { name: "Jake", img: "https://i.pinimg.com/736x/cb/96/5a/cb965ab6c13eaf52f182474b6fc9a7d1.jpg", ability: "Alieno" },
+            { name: "Jerry", img: "https://i.pinimg.com/736x/be/2f/e1/be2fe1bde39e5005bdc4cea479dcf6f7.jpg", ability: "Lanciatore" },
+            { name: "Johnny Bravo", img: "https://i.pinimg.com/736x/b4/cd/95/b4cd959a9bb7efaf289ba3e4ae85d4b8.jpg", ability: "Guerriero" },
+            { name: "Katara", img: "https://i.pinimg.com/736x/00/14/5e/00145ebb0ae3ae4b2af824d831faf313.jpg", ability: "Curatore" },
+            { name: "Kirby", img: "https://i.pinimg.com/736x/ba/e6/63/bae6637b3efecfd002f0c1f9605e53be.jpg", ability: "Alieno" },
+            { name: "Kratos", img: "https://i.pinimg.com/736x/d9/d4/4f/d9d44f16329a4e72b4b8e45d41d83262.jpg", ability: "Guerriero" },
+            { name: "Ladybug", img: "https://i.pinimg.com/736x/72/32/f1/7232f16bdab9dd11a2fa77403a1fe9f1.jpg", ability: "Protettivo" },
+            { name: "Lapis", img: "https://i.pinimg.com/1200x/09/fb/12/09fb12467957da96913fc8f75e6f6356.jpg", ability: "Mago" },
+            { name: "Leavanny", img: "https://i.pinimg.com/736x/72/b6/ff/72b6ffcd1396128f0f2235281171bc92.jpg", ability: "Curatore" },
+            { name: "Leela", img: "https://i.pinimg.com/1200x/6e/c8/b6/6ec8b67dc6bb062afc2007495b041e84.jpg", ability: "Lanciatore" },
+            { name: "Leon Kennedy", img: "https://i.pinimg.com/736x/0a/e9/e8/0a27cd44aae181df0884d85bf18d0574.jpg", ability: "Guerriero" },
+            { name: "Link", img: "https://i.pinimg.com/736x/be/29/0a/be290ac4f5b6f1de6f88ee2099e04da1.jpg", ability: "Guerriero" },
+            { name: "Lisa Simpson", img: "https://i.pinimg.com/736x/bf/df/10/bfdf10aa4399efd5fc1430601b589613.jpg", ability: "Curatore" },
+            { name: "Lola Bunny", img: "https://i.pinimg.com/1200x/ee/12/ad/ee12ad4d87c9f5e3bafb2e1bc9676439.jpg", ability: "Lanciatore" },
+            { name: "Lucario", img: "https://i.pinimg.com/1200x/6f/bf/ab/6fbfab2a5aceb54d48323128e7a10ae4.jpg", ability: "Guerriero" },
+            { name: "Luigi", img: "https://i.pinimg.com/1200x/0b/49/30/0b49308522463829166e76b0d914c8b8.jpg", ability: "Protettivo" },
+            { name: "Marceline", img: "https://i.pinimg.com/736x/bb/93/5e/bb935e39f2d66248b6e4178227bdb233.jpg", ability: "Mago" },
+            { name: "Mario", img: "https://i.pinimg.com/736x/61/62/b5/6162b56bc61a4050bb34d7203e03642d.jpg", ability: "Guerriero" },
+            { name: "Mewtwo", img: "https://i.pinimg.com/1200x/14/58/63/145863e7d3907cda7d679130e0066014.jpg", ability: "Alieno" },
+            { name: "Mia", img: "https://i.pinimg.com/736x/f0/5b/f1/f05bf1f89011521e38e5729e6cb9596f.jpg", ability: "Curatore" },
+            { name: "Mimikyu", img: "https://i.pinimg.com/1200x/7f/c3/98/7fc3984347358acee07cf91f2ed1d0ff.jpg", ability: "Alieno" },
+            { name: "Mordecai", img: "https://i.pinimg.com/736x/4f/2e/04/4f2e04cace599c4433a84b490d12c2a4.jpg", ability: "Lanciatore" },
+            { name: "Morty", img: "https://i.pinimg.com/736x/95/5c/dc/955cdc707097b8546e167c2188c4b5df.jpg", ability: "Protettivo" },
+            { name: "Ned Flanders", img: "https://pbs.twimg.com/media/Fenv8bnWIAIdub7.jpg:large", ability: "Curatore" },
+            { name: "Nicole Watterson", img: "https://i.pinimg.com/736x/81/24/e4/8124e43da43e1d06dcdbca15f22a0cd9.jpg", ability: "Guerriero" },
+            { name: "Oggy", img: "https://i.pinimg.com/736x/ca/8a/de/ca8ade9acdf1115e9364fd30abd41754.jpg", ability: "Lanciatore" },
+            { name: "Olaf", img: "https://i.pinimg.com/736x/a5/d4/2f/a5d42f86e89066cb61ebafe1f8a47fa7.jpg", ability: "Protettivo" },
+            { name: "Orso Bianco", img: "https://i.pinimg.com/736x/9c/36/59/9c3659e69419f16abe572e4241667bcd.jpg", ability: "Guerriero" },
+            { name: "Panda", img: "https://i.pinimg.com/1200x/cf/d2/85/cfd285a97021713f6f5cada516043233.jpg", ability: "Curatore" },
+            { name: "Pantera Rosa", img: "https://i.pinimg.com/736x/9a/f9/09/9af9099c905afbd33773eb4d110d1d01.jpg", ability: "Lanciatore" },
+            { name: "Patrick Stella", img: "https://i.pinimg.com/1200x/27/e0/2e/27e02eadbe6a321a7d0a9641a394c811.jpg", ability: "Protettivo" },
+            { name: "Perla", img: "https://i.pinimg.com/736x/7b/2e/b7/7b2eb73a3f511efa5bc182d1db60191b.jpg", ability: "Mago" },
+            { name: "Perry l'Ornitorinco", img: "https://i.pinimg.com/736x/59/f2/98/59f29865a1e5fd69d69984b4a8d91729.jpg", ability: "Lanciatore" },
+            { name: "Peter Griffin", img: "https://i.pinimg.com/736x/9e/40/74/9e4074bbe7890cd245b51b9ff5c0e33c.jpg", ability: "Protettivo" },
+            { name: "Phineas", img: "https://i.pinimg.com/736x/cf/84/b5/cf84b5f2d0db3addab2509f12dbcfe82.jpg", ability: "Curatore" },
+            { name: "Pikachu", img: "https://i.pinimg.com/736x/ad/65/b6/ad65b669746561313925ffff392518bc.jpg", ability: "Lanciatore" },
+            { name: "Ponygon", img: "https://i.pinimg.com/1200x/4a/ee/29/4aee29b5bc03c3f3dfbec858428e86a9.jpg", ability: "Guerriero" },
+            { name: "Princess Peach", img: "https://i.pinimg.com/736x/fc/bc/da/fcbcda0aa38a8183012999fe9a5dd896.jpg", ability: "Curatore" },
+            { name: "Rapunzel", img: "https://i.pinimg.com/736x/65/e7/25/65e725cdfbff5c4faa067bd452a1e6cd.jpg", ability: "Curatore" },
+            { name: "Regina degli Arcieri", img: "https://i.pinimg.com/1200x/b9/d1/20/b9d120ce9e276c6e039b33504aeea42a.jpg", ability: "Lanciatore" },
+            { name: "Rena Rouge", img: "https://i.pinimg.com/736x/de/9d/47/de9d4781d1e2a1956088db188b16dbfc.jpg", ability: "Mago" },
+            { name: "Re Julien", img: "https://i.pinimg.com/736x/1e/17/19/1e17194ef5b383e4202fbb4875cfbd81.jpg", ability: "Protettivo" },
+            { name: "Mortino", img: "https://i.pinimg.com/736x/2e/c7/f4/2ec7f474dc3b202326fdc97feddca207.jpg", ability: "Curatore" },
+            { name: "Skipper", img: "https://i.pinimg.com/736x/e6/f0/5b/e6f05b20dda962344721db983c882679.jpg", ability: "Lanciatore" },
+            { name: "Lord Farquaad", img: "https://i.pinimg.com/736x/35/93/ac/3593acb0b8f9d75704f5a0778c693e73.jpg", ability: "Guerriero" }
+        ];
+
+        // Aggiungi 20 carte fittizie per arrivare a 100+
+        const additionalCards = [
+            { name: "GigaChad", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=GigaChad", ability: "Guerriero" },
+            { name: "AstroBot", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=AstroBot", ability: "Alieno" },
+            { name: "ZenMaster", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=ZenMaster", ability: "Curatore" },
+            { name: "TechNinja", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=TechNinja", ability: "Lanciatore" },
+            { name: "Guardian", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=Guardian", ability: "Protettivo" },
+            { name: "Vortex", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=Vortex", ability: "Mago" },
+            { name: "Blazer", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=Blazer", ability: "Guerriero" },
+            { name: "Echo", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=Echo", ability: "Lanciatore" },
+            { name: "HealBot", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=HealBot", ability: "Curatore" },
+            { name: "WallMan", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=WallMan", ability: "Protettivo" },
+            { name: "RuneSmith", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=RuneSmith", ability: "Mago" },
+            { name: "Zorp", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=Zorp", ability: "Alieno" },
+            { name: "Gladiator", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=Gladiator", ability: "Guerriero" },
+            { name: "Sniper", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=Sniper", ability: "Lanciatore" },
+            { name: "Lifesaver", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=Lifesaver", ability: "Curatore" },
+            { name: "Sentinel", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=Sentinel", ability: "Protettivo" },
+            { name: "WitchDoc", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=WitchDoc", ability: "Mago" },
+            { name: "Xenomorph", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=Xenomorph", ability: "Alieno" },
+            { name: "Berserk", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=Berserk", ability: "Guerriero" },
+            { name: "Teleporter", img: "https://placehold.co/150x200/5082E4/FFFFFF?text=Teleporter", ability: "Mago" },
+            { name: "Brago", img: "https://i.pinimg.com/1200x/7f/28/31/7f283141b761fee05de62cd51f4926ee.jpg", ability: "Guerriero" }, // Carta aggiunta in ritardo
+            { name: "Belgim E.O", img: "https://m.media-amazon.com/images/M/MV5BODhhYWMxNzMtZGY2NS00MmM1LWI5OWItZjU1N2ZiNDA5NTI1XkEyXkFqcGc@._V1_.jpg", ability: "Protettivo" } // Carta aggiunta in ritardo
+        ];
+
+        const __CARD_DEFINITIONS = [...__BASE_CARD_LIST, ...additionalCards].reduce((acc, card) => {
+            // Statistiche base bilanciate
+            let baseHP = 100, baseATK = 20, baseDEF = 10;
+            switch (card.ability) {
+                case "Guerriero": baseHP = 120; baseATK = 25; baseDEF = 15; break;
+                case "Lanciatore": baseHP = 90; baseATK = 30; baseDEF = 5; break;
+                case "Curatore": baseHP = 110; baseATK = 10; baseDEF = 15; break;
+                case "Protettivo": baseHP = 130; baseATK = 10; baseDEF = 20; break;
+                case "Mago": baseHP = 100; baseATK = 20; baseDEF = 10; break;
+                case "Alieno": baseHP = 105; baseATK = 22; baseDEF = 13; break;
+            }
+
+            // Mosse base (almeno 3)
+            const moves = [
+                { name: "Attacco Base", damage: baseATK, targets: 1, type: "damage" },
+                { name: `Abilità ${card.ability}`, damage: Math.floor(baseATK * 0.5), targets: 1, type: "special" },
+                { name: "Super Colpo", damage: Math.floor(baseATK * 1.5), targets: 1, type: "damage" }
+            ];
+
+            acc[card.name] = {
+                ...card,
+                hp: baseHP,
+                maxHp: baseHP,
+                attack: baseATK,
+                defense: baseDEF,
+                moves: moves,
+                shopPrice: Math.floor(Math.random() * (500 - 200 + 1) + 200), // Prezzo casuale 200-500
+                id: card.name.toLowerCase().replace(/\s/g, '-')
+            };
+            return acc;
+        }, {});
+
+        // Funzioni di supporto globali
+        window.showScreen = (screenId) => {
+            document.querySelectorAll('#app > div').forEach(el => {
+                if (el.id !== 'loading-screen') {
+                    el.classList.add('hidden');
+                }
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+            // Aggiorna dati specifici dello schermo
+            if (screenId === 'main-menu') {
+                updateUserInfo();
+            } else if (screenId === 'deck-manager') {
+                renderDeckManager();
+            } else if (screenId === 'shop') {
+                renderShop();
+            }
+        };
+
+        const generateRandomDeck = () => {
+            const allCardIds = Object.keys(__CARD_DEFINITIONS);
+            const shuffled = allCardIds.sort(() => 0.5 - Math.random());
+            return shuffled.slice(0, 10);
+        };
+
+        const updateUserData = async (updates) => {
+            if (!userId) {
+                console.error("Tentativo di aggiornare i dati utente senza ID.");
+                return;
+            }
+            try {
+                // FIXED: Percorso corretto con numero pari di segmenti
+                const userDocRef = doc(db, `artifacts/${appId}/users/${userId}/data/profile`);
+                await updateDoc(userDocRef, updates);
+                userData = { ...userData, ...updates }; // Aggiorna la variabile locale
+                updateUserInfo();
+            } catch (error) {
+                console.error("Errore nell'aggiornamento dei dati utente:", error);
+                document.getElementById('status-message').textContent = `Errore salvataggio: ${error.message}`;
+                document.getElementById('status-message').classList.remove('hidden');
+                setTimeout(() => document.getElementById('status-message').classList.add('hidden'), 5000);
+            }
+        };
+
+        const updateUserInfo = () => {
+            if (userData) {
+                const nickname = userData.nickname || 'Anonimo';
+                document.getElementById('user-info').textContent = `ID: ${userId.substring(0, 5)}... | Nickname: ${nickname}`;
+                document.getElementById('user-coins').textContent = `${userData.coins || 0} Monete`;
+                document.getElementById('nickname-input').value = nickname;
+                document.getElementById('nickname-setup').classList.toggle('hidden', !!userData.nickname);
+                document.getElementById('deck-manager').querySelector('#deck-error-message').classList.toggle('hidden', userData.deck.length === 0);
+            }
+        };
+
+        const loadUserAndListen = async (uid) => {
+            try {
+                // FIXED: Percorso corretto con numero pari di segmenti
+                const userDocRef = doc(db, `artifacts/${appId}/users/${uid}/data/profile`);
+                
+                // onSnapshot per l'aggiornamento in tempo reale
+                onSnapshot(userDocRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        userData = docSnap.data();
+                        console.log("Dati utente caricati/aggiornati:", userData);
+                        updateUserInfo();
+                    } else {
+                        // Nuovo utente: crea profilo iniziale
+                        const initialDeck = generateRandomDeck();
+                        userData = {
+                            nickname: '',
+                            coins: 500, // Monete iniziali
+                            unlockedCards: initialDeck,
+                            deck: initialDeck,
+                            wins: 0,
+                            losses: 0,
+                            lastPlayed: new Date().toISOString()
+                        };
+                        setDoc(userDocRef, userData).then(() => {
+                            console.log("Profilo utente iniziale creato.");
+                            updateUserInfo();
+                        });
+                    }
+                    showScreen('main-menu');
+                }, (error) => {
+                    console.error("Errore onSnapshot utente:", error);
+                });
+
+            } catch (error) {
+                console.error("Errore nel caricamento del profilo utente:", error);
+                document.getElementById('loading-screen').innerHTML = `<p class="text-red-500">Errore di caricamento: ${error.message}</p>`;
+            }
+        };
+
+        const initializeAppAndAuth = async () => {
+            try {
+                if (Object.keys(firebaseConfig).length === 0) {
+                    throw new Error("Configurazione Firebase non trovata.");
+                }
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('Debug');
+
+                // FIX: Spostata la logica di caricamento carte dentro onAuthStateChanged per evitare errori di permessi
+                // prima del login.
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+
+                        // Carica la lista delle carte nel database se non esiste (simulazione)
+                        // Eseguito SOLO dopo che l'utente è autenticato per rispettare le regole di sicurezza
+                        try {
+                            const cardsCollectionRef = collection(db, `artifacts/${appId}/public/data`, 'cards');
+                            const cardsSnapshot = await getDocs(cardsCollectionRef);
+                            if (cardsSnapshot.empty) {
+                                console.log("Popolamento collezione carte...");
+                                for (const name in __CARD_DEFINITIONS) {
+                                    const card = __CARD_DEFINITIONS[name];
+                                    await setDoc(doc(cardsCollectionRef, card.id), card);
+                                }
+                                console.log("Collezione carte popolata.");
+                            }
+                        } catch (e) {
+                            console.warn("Impossibile inizializzare carte DB (probabilmente regole di sicurezza o già presenti):", e);
+                            // Continua comunque, useremo le definizioni locali se necessario
+                        }
+
+                        loadUserAndListen(userId);
+                    } else {
+                        // Non dovrebbe accadere se l'autenticazione è corretta
+                        console.log("Nessun utente loggato.");
+                    }
+                });
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+            } catch (error) {
+                console.error("Errore fatale nell'inizializzazione:", error);
+                document.getElementById('loading-screen').innerHTML = `<p class="text-red-500">Errore: ${error.message}</p>`;
+            }
+        };
+
+        // --- Logica di Gioco e Funzioni UI ---
+        // ... (resto del codice invariato)
+
+        const createCardHTML = (cardDef, deckAction = null) => {
+            const currentCardData = userData.deck.find(c => c.id === cardDef.id) || cardDef; // Usa i dati di gioco se disponibili
+            const isDecked = userData.deck.includes(cardDef.id);
+
+            // Aggiungi un'immagine di fallback nel caso in cui l'URL sia problematico
+            const imgUrl = cardDef.img || `https://placehold.co/150x150/5082E4/FFFFFF?text=${cardDef.name}`;
+
+            let actionButton = '';
+            if (deckAction === 'collection') {
+                actionButton = `<button data-card-id="${cardDef.id}" onclick="toggleDeck(this)" class="mt-2 w-full py-1 text-xs rounded transition duration-200 ${isDecked ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}">
+                    ${isDecked ? 'Rimuovi' : 'Aggiungi'}
+                </button>`;
+            } else if (deckAction === 'shop') {
+                const canAfford = userData.coins >= cardDef.shopPrice;
+                const isUnlocked = userData.unlockedCards.includes(cardDef.id);
+                actionButton = `<button data-card-id="${cardDef.id}" data-price="${cardDef.shopPrice}" onclick="buyCard(this)" ${!canAfford || isUnlocked ? 'disabled' : ''} class="mt-2 w-full py-1 text-xs rounded transition duration-200 ${canAfford ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-gray-500'} disabled:opacity-50">
+                    ${isUnlocked ? 'Sbloccata' : `${cardDef.shopPrice} Monete`}
+                </button>`;
+            }
+
+            return `
+                <div class="card-container">
+                    <div class="card ability-${cardDef.ability.toLowerCase()}">
+                        <div class="card-front text-xs">
+                            <h4 class="text-sm font-bold text-center mb-1 w-full truncate">${cardDef.name}</h4>
+                            <img src="${imgUrl}" onerror="this.onerror=null;this.src='https://placehold.co/150x150/5082E4/FFFFFF?text=${cardDef.name.substring(0, 10)}'" class="w-20 h-20 rounded-full object-cover mb-1">
+                            <div class="stats w-full text-left text-xs mb-1">
+                                <p class="text-red-400">HP: ${currentCardData.hp} / ${cardDef.maxHp}</p>
+                                <p class="text-green-400">ATK: ${cardDef.attack}</p>
+                                <p class="text-blue-400">DEF: ${cardDef.defense}</p>
+                            </div>
+                            <p class="text-xs font-semibold text-center mt-auto">Abilità: ${cardDef.ability}</p>
+                            ${actionButton}
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        window.renderDeckManager = () => {
+            if (!userData) return;
+
+            const deckContainer = document.getElementById('current-deck-cards');
+            const collectionContainer = document.getElementById('collection-cards');
+            const collectionCount = document.getElementById('collection-count');
+            const deckCount = document.getElementById('deck-count');
+
+            deckContainer.innerHTML = '';
+            collectionContainer.innerHTML = '';
+
+            // 1. Renderizza Deck Attuale
+            const deckCardDefs = userData.deck.map(id => __CARD_DEFINITIONS[id]).filter(c => c);
+            deckCardDefs.forEach(cardDef => {
+                deckContainer.innerHTML += createCardHTML(cardDef, 'collection');
+            });
+            if (deckCardDefs.length === 0) {
+                 deckContainer.innerHTML = '<p class="text-gray-500 mt-8">Deck vuoto. Aggiungi carte dalla tua Collezione.</p>';
+            }
+
+            // 2. Renderizza Collezione
+            const collectionCardDefs = userData.unlockedCards.map(id => __CARD_DEFINITIONS[id]).filter(c => c);
+            collectionCardDefs.forEach(cardDef => {
+                collectionContainer.innerHTML += createCardHTML(cardDef, 'collection');
+            });
+
+            deckCount.textContent = `${userData.deck.length}`;
+            collectionCount.textContent = `${userData.unlockedCards.length}`;
+        };
+
+        window.toggleDeck = async (button) => {
+            const cardId = button.getAttribute('data-card-id');
+            const cardName = __CARD_DEFINITIONS[cardId].name;
+            const deck = [...userData.deck];
+            const maxDeckSize = 10;
+            const errorMessageEl = document.getElementById('deck-error-message');
+            errorMessageEl.classList.add('hidden');
+
+            if (deck.includes(cardId)) {
+                // Rimuovi
+                const newDeck = deck.filter(id => id !== cardId);
+                await updateUserData({ deck: newDeck });
+                console.log(`Carta ${cardName} rimossa dal deck.`);
+            } else {
+                // Aggiungi
+                if (deck.length < maxDeckSize) {
+                    deck.push(cardId);
+                    await updateUserData({ deck: deck });
+                    console.log(`Carta ${cardName} aggiunta al deck.`);
+                } else {
+                    errorMessageEl.textContent = `Impossibile aggiungere ${cardName}. Il deck è pieno (Max ${maxDeckSize} carte).`;
+                    errorMessageEl.classList.remove('hidden');
+                }
+            }
+            renderDeckManager(); // Ricarica l'UI
+        };
+
+        window.renderShop = () => {
+            if (!userData) return;
+            document.getElementById('shop-coins').textContent = userData.coins;
+            const shopList = document.getElementById('shop-cards-list');
+            shopList.innerHTML = '';
+
+            // Renderizza tutte le carte nello shop
+            const allCardDefs = Object.values(__CARD_DEFINITIONS);
+
+            allCardDefs.sort((a, b) => a.shopPrice - b.shopPrice); // Ordina per prezzo
+
+            allCardDefs.forEach(cardDef => {
+                const isUnlocked = userData.unlockedCards.includes(cardDef.id);
+                // Non mostrare le carte già sbloccate per non appesantire lo shop, a meno che non sia una carta comune.
+                if (!isUnlocked || cardDef.shopPrice < 250) {
+                    shopList.innerHTML += createCardHTML(cardDef, 'shop');
+                }
+            });
+        };
+
+        window.buyCard = async (button) => {
+            const cardId = button.getAttribute('data-card-id');
+            const price = parseInt(button.getAttribute('data-price'));
+            const cardName = __CARD_DEFINITIONS[cardId].name;
+            const shopMessage = document.getElementById('shop-message');
+            shopMessage.classList.add('hidden');
+
+            if (userData.coins < price) {
+                shopMessage.textContent = "Non hai abbastanza monete per acquistare questa carta!";
+                shopMessage.classList.remove('hidden');
+                return;
+            }
+            if (userData.unlockedCards.includes(cardId)) {
+                shopMessage.textContent = "Hai già sbloccato questa carta!";
+                shopMessage.classList.remove('hidden');
+                return;
+            }
+
+            const newCoins = userData.coins - price;
+            const newUnlockedCards = [...userData.unlockedCards, cardId];
+
+            await updateUserData({ coins: newCoins, unlockedCards: newUnlockedCards });
+
+            shopMessage.textContent = `Acquistato ${cardName} per ${price} monete!`;
+            shopMessage.classList.remove('hidden');
+
+            renderShop(); // Ricarica lo shop
+        };
+
+        document.getElementById('set-nickname-btn').addEventListener('click', async () => {
+            const nickname = document.getElementById('nickname-input').value.trim();
+            if (nickname.length > 2 && nickname.length <= 20) {
+                await updateUserData({ nickname: nickname });
+                document.getElementById('nickname-setup').classList.add('hidden');
+            } else {
+                document.getElementById('status-message').textContent = "Il nickname deve avere tra 3 e 20 caratteri.";
+                document.getElementById('status-message').classList.remove('hidden');
+                setTimeout(() => document.getElementById('status-message').classList.add('hidden'), 3000);
+            }
+        });
+
+        // --- Logica di Creazione e Join Stanza ---
+
+        document.getElementById('create-room-btn').addEventListener('click', async () => {
+            if (!userData.nickname) {
+                document.getElementById('room-status').textContent = "Devi impostare un nickname prima di creare una stanza!";
+                document.getElementById('room-status').classList.remove('hidden');
+                return;
+            }
+             if (userData.deck.length < parseInt(document.getElementById('deck-size-limit').value)) {
+                document.getElementById('room-status').textContent = `Il tuo deck non rispetta il limite impostato (minimo ${document.getElementById('deck-size-limit').value} carte).`;
+                document.getElementById('room-status').classList.remove('hidden');
+                return;
+            }
+
+            const mode = document.getElementById('game-mode').value;
+            const cpuEnabled = document.getElementById('cpu-enabled').value === 'yes';
+            const deckLimit = parseInt(document.getElementById('deck-size-limit').value);
+            const fieldLimit = parseInt(document.getElementById('field-size-limit').value);
+
+            try {
+                const roomData = {
+                    status: 'waiting',
+                    mode: mode,
+                    hostId: userId,
+                    hostName: userData.nickname,
+                    createdAt: new Date().toISOString(),
+                    settings: { cpu: cpuEnabled, deckLimit: deckLimit, fieldLimit: fieldLimit },
+                    players: {
+                        [userId]: { name: userData.nickname, isHost: true, status: 'ready', deck: userData.deck }
+                    }
+                };
+
+                const roomRef = await addDoc(collection(db, `artifacts/${appId}/public/data`, 'gameSessions'), roomData);
+                currentRoomId = roomRef.id;
+                await listenToGameSession(currentRoomId);
+                showScreen('lobby');
+            } catch (error) {
+                console.error("Errore nella creazione della stanza:", error);
+                document.getElementById('room-status').textContent = `Errore: ${error.message}`;
+                document.getElementById('room-status').classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('join-room-btn').addEventListener('click', async () => {
+            const roomId = document.getElementById('join-room-id').value.trim();
+             if (!userData.nickname) {
+                document.getElementById('join-room-status').textContent = "Devi impostare un nickname prima di unirti a una stanza!";
+                document.getElementById('join-room-status').classList.remove('hidden');
+                return;
+            }
+            if (!roomId) return;
+
+            try {
+                const roomRef = doc(db, `artifacts/${appId}/public/data`, 'gameSessions', roomId);
+                const roomSnap = await getDoc(roomRef);
+
+                if (!roomSnap.exists()) {
+                    document.getElementById('join-room-status').textContent = "Stanza non trovata.";
+                    document.getElementById('join-room-status').classList.remove('hidden');
+                    return;
+                }
+
+                const room = roomSnap.data();
+                const maxPlayers = room.mode === '1v1' ? 2 : 4;
+                const playerCount = Object.keys(room.players).length;
+
+                if (room.status !== 'waiting' || playerCount >= maxPlayers) {
+                    document.getElementById('join-room-status').textContent = "Stanza piena o partita già iniziata.";
+                    document.getElementById('join-room-status').classList.remove('hidden');
+                    return;
+                }
+
+                if (userData.deck.length < room.settings.deckLimit) {
+                    document.getElementById('join-room-status').textContent = `Il tuo deck deve contenere almeno ${room.settings.deckLimit} carte per questa stanza.`;
+                    document.getElementById('join-room-status').classList.remove('hidden');
+                    return;
+                }
+
+                const newPlayers = { ...room.players,
+                    [userId]: { name: userData.nickname, isHost: false, status: 'ready', deck: userData.deck }
+                };
+
+                await updateDoc(roomRef, { players: newPlayers });
+                currentRoomId = roomId;
+                await listenToGameSession(currentRoomId);
+                showScreen('lobby');
+
+            } catch (error) {
+                console.error("Errore nell'unirsi alla stanza:", error);
+                document.getElementById('join-room-status').textContent = `Errore: ${error.message}`;
+                document.getElementById('join-room-status').classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('leave-lobby-btn').addEventListener('click', leaveGameSession);
+
+        async function leaveGameSession() {
+            if (currentRoomId && userId) {
+                try {
+                    const roomRef = doc(db, `artifacts/${appId}/public/data`, 'gameSessions', currentRoomId);
+                    const roomSnap = await getDoc(roomRef);
+
+                    if (roomSnap.exists()) {
+                        const room = roomSnap.data();
+                        const { [userId]: _, ...remainingPlayers } = room.players;
+
+                        if (Object.keys(remainingPlayers).length === 0) {
+                            await deleteDoc(roomRef); // Cancella la stanza se è vuota
+                        } else if (room.hostId === userId) {
+                            // Se l'host se ne va, assegna un nuovo host o cancella
+                            const newHostId = Object.keys(remainingPlayers)[0];
+                            const updatedPlayers = { ...remainingPlayers, [newHostId]: { ...remainingPlayers[newHostId], isHost: true } };
+                            await updateDoc(roomRef, { hostId: newHostId, hostName: remainingPlayers[newHostId].name, players: updatedPlayers });
+                        } else {
+                            await updateDoc(roomRef, { players: remainingPlayers });
+                        }
+                    }
+                } catch (error) {
+                    console.warn("Errore nell'uscita dalla stanza/lobby:", error);
+                }
+            }
+            if (gameSessionListener) {
+                gameSessionListener(); // Ferma l'ascoltatore
+                gameSessionListener = null;
+            }
+            currentRoomId = null;
+            showScreen('main-menu');
+        }
+
+        const renderLobby = (roomData) => {
+            document.getElementById('lobby-id').textContent = `ID Stanza: ${roomData.id}`;
+
+            const isHost = roomData.hostId === userId;
+            document.getElementById('start-game-btn').classList.toggle('hidden', !isHost);
+            document.getElementById('wait-message').classList.toggle('hidden', isHost);
+
+            // Renderizza i giocatori
+            const playersDiv = document.getElementById('lobby-players');
+            playersDiv.innerHTML = '<h3 class="text-xl font-semibold mb-2">Giocatori Attuali:</h3>';
+            Object.values(roomData.players).forEach(player => {
+                playersDiv.innerHTML += `
+                    <div class="p-3 rounded-lg bg-gray-700 flex justify-between items-center">
+                        <span class="font-bold">${player.name} ${player.isHost ? '(Host)' : ''}</span>
+                        <span class="text-sm text-green-400">${player.status}</span>
+                    </div>
+                `;
+            });
+
+            // Renderizza le impostazioni
+            const settingsDiv = document.getElementById('lobby-settings');
+            settingsDiv.innerHTML = `
+                <h3 class="text-xl font-semibold mb-2">Impostazioni:</h3>
+                <p>Modalità: <span class="font-bold">${roomData.mode === '1v1' ? '1 vs 1' : 'FFA (4 Giocatori)'}</span></p>
+                <p>CPU: <span class="font-bold">${roomData.settings.cpu ? 'Sì' : 'No'}</span></p>
+                <p>Carte Totali Deck: <span class="font-bold">${roomData.settings.deckLimit}</span></p>
+                <p>Carte in Campo: <span class="font-bold">${roomData.settings.fieldLimit}</span></p>
+            `;
+        };
+
+        const listenToGameSession = (roomId) => {
+            if (gameSessionListener) gameSessionListener(); // Ferma il listener precedente
+
+            const roomRef = doc(db, `artifacts/${appId}/public/data`, 'gameSessions', roomId);
+            gameSessionListener = onSnapshot(roomRef, (docSnap) => {
+                if (!docSnap.exists()) {
+                    console.log("Sessione di gioco terminata o cancellata.");
+                    leaveGameSession(); // Torna al menu se la stanza è stata cancellata
+                    return;
+                }
+
+                const roomData = { id: docSnap.id, ...docSnap.data() };
+                currentRoomId = roomData.id;
+
+                if (roomData.status === 'waiting') {
+                    showScreen('lobby');
+                    renderLobby(roomData);
+                } else if (roomData.status === 'playing' || roomData.status === 'select_replacement') {
+                    showScreen('game-screen');
+                    renderGame(roomData);
+                } else if (roomData.status === 'finished') {
+                    showScreen('game-screen');
+                    renderGame(roomData); // Renderizza lo stato finale del campo
+                    handleGameEnd(roomData);
+                }
+            }, (error) => {
+                console.error("Errore onSnapshot sessione di gioco:", error);
+                // Non usare alert(), usa un messaggio su schermo o console
+                leaveGameSession();
+            });
+        };
+
+        // --- Logica di Gioco in Partita ---
+        let selectedActiveCardId = null;
+        let selectedMove = null;
+        let selectedTargetPlayerId = null;
+        let selectedTargetCardIndex = null;
+        let currentGameState = null;
+
+        document.getElementById('start-game-btn').addEventListener('click', startGame);
+
+        async function startGame() {
+            const roomRef = doc(db, `artifacts/${appId}/public/data`, 'gameSessions', currentRoomId);
+            const roomSnap = await getDoc(roomRef);
+            const room = { id: roomSnap.id, ...roomSnap.data() };
+
+            const players = room.players;
+            const playerIds = Object.keys(players);
+
+            // Aggiungi CPU se necessario
+            let cpuCount = 0;
+            const maxPlayers = room.mode === '1v1' ? 2 : 4;
+            if (room.settings.cpu) {
+                cpuCount = maxPlayers - playerIds.length;
+                for (let i = 1; i <= cpuCount; i++) {
+                    const cpuId = `cpu_${Date.now()}_${i}`;
+                    const cpuName = `CPU ${i}`;
+                    players[cpuId] = {
+                        name: cpuName,
+                        isHost: false,
+                        status: 'ready',
+                        isCPU: true,
+                        deck: generateRandomDeck().slice(0, room.settings.deckLimit) // Deck della CPU
+                    };
+                }
+            }
+
+            const initialField = {};
+            const initialDeck = {};
+            const playerOrder = Object.keys(players).sort(() => 0.5 - Math.random()); // Ordine casuale
+
+            for (const pId in players) {
+                const p = players[pId];
+                const deckIds = p.deck.slice(); // Copia del deck (ID delle carte)
+                const fieldCards = [];
+
+                // Manda le prime X carte in campo
+                for (let i = 0; i < room.settings.fieldLimit && deckIds.length > 0; i++) {
+                    const cardId = deckIds.shift();
+                    fieldCards.push(createCardInstance(cardId, pId));
+                }
+
+                initialField[pId] = fieldCards;
+                initialDeck[pId] = deckIds;
+            }
+
+            const gameState = {
+                status: 'playing',
+                currentPlayerIndex: 0,
+                playerOrder: playerOrder,
+                playerData: Object.keys(players).reduce((acc, pId) => {
+                    acc[pId] = {
+                        name: players[pId].name,
+                        isCPU: !!players[pId].isCPU,
+                        status: 'alive',
+                        deck: initialDeck[pId], // ID carte rimanenti
+                        field: initialField[pId], // Istanze di carta sul campo
+                        fieldLimit: room.settings.fieldLimit,
+                        defeatedCount: 0
+                    };
+                    return acc;
+                }, {}),
+                turn: 1,
+                log: [`Inizio Partita: ${room.mode} (${Object.keys(players).length} Giocatori)`]
+            };
+
+            await updateDoc(roomRef, { gameState: gameState, status: 'playing', players: players });
+        }
+
+        const createCardInstance = (cardId, playerId) => {
+            const def = __CARD_DEFINITIONS[cardId];
+            if (!def) return null;
+            return {
+                id: cardId, // ID dalla definizione
+                uniqueId: `${playerId}-${cardId}-${Date.now()}`, // ID univoco nell'istanza di gioco
+                name: def.name,
+                ownerId: playerId,
+                hp: def.maxHp,
+                maxHp: def.maxHp,
+                attack: def.attack,
+                defense: def.defense,
+                ability: def.ability,
+                statusEffects: [], // e.g., { type: 'stun', turnsLeft: 1 }
+                moves: def.moves
+            };
+        };
+
+        const renderGame = (roomData) => {
+            currentGameState = roomData.gameState;
+            if (!currentGameState) return;
+
+            const myPlayerId = userId;
+            const myData = currentGameState.playerData[myPlayerId];
+            const currentPlayerId = currentGameState.playerOrder[currentGameState.currentPlayerIndex];
+            const isMyTurn = currentPlayerId === myPlayerId;
+            const isMyTurnForReplacement = roomData.status === 'select_replacement' && currentGameState.replacementNeededForPlayer === myPlayerId;
+
+            document.getElementById('game-mode-display').textContent = roomData.mode;
+            document.getElementById('current-player-name').textContent = currentGameState.playerData[currentPlayerId].name;
+            document.getElementById('deck-left-count').textContent = myData ? myData.deck.length : 0;
+            document.getElementById('game-message').classList.add('hidden');
+
+            // Render Log
+            const logEl = document.getElementById('move-log');
+            logEl.innerHTML = currentGameState.log.map(msg => `<p class="mb-1">${msg}</p>`).reverse().join('');
+            logEl.scrollTop = logEl.scrollHeight;
+
+            // Render Campi
+            renderPlayerField(myData, document.getElementById('player-field'), isMyTurn);
+            renderOpponentFields(currentGameState.playerData, myPlayerId);
+
+            // Gestione Area Azioni
+            document.getElementById('select-replacement').classList.add('hidden');
+            document.getElementById('select-move-target').classList.add('hidden');
+
+            if (roomData.status === 'select_replacement' && isMyTurnForReplacement) {
+                // FASE: Sostituzione Carta
+                handleReplacementSelection(myData, currentGameState.replacementNeededUniqueId);
+            } else if (roomData.status === 'playing' && isMyTurn) {
+                // FASE: Mossa
+                handleMoveSelection(myData);
+                if (myData.isCPU) {
+                    // Mossa automatica per la CPU
+                    setTimeout(executeCPUMove, 2000);
+                }
+            } else if (roomData.status === 'playing' && !isMyTurn) {
+                 document.getElementById('game-message').textContent = `Attendi il turno di ${currentGameState.playerData[currentPlayerId].name}...`;
+                 document.getElementById('game-message').classList.remove('hidden');
+            }
+        };
+
+        const renderPlayerField = (playerData, container, isMyTurn) => {
+            container.innerHTML = `<h3 class="w-full text-center text-xl font-semibold mb-2 text-green-400">Il tuo Campo</h3>`;
+            if (playerData && playerData.field.length > 0) {
+                playerData.field.forEach((cardInstance, index) => {
+                    const cardDef = __CARD_DEFINITIONS[cardInstance.id];
+                    if (!cardDef) return;
+
+                    const isSelected = selectedActiveCardId === cardInstance.uniqueId;
+                    const buttonHtml = isMyTurn ? `<button onclick="setActiveCard('${cardInstance.uniqueId}')" class="mt-2 w-full py-1 text-xs rounded transition duration-200 ${isSelected ? 'bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}">
+                            ${isSelected ? 'SELEZIONATO' : 'SELEZIONA'}
+                        </button>` : '';
+
+                    container.innerHTML += `
+                        <div class="card-container" data-card-uid="${cardInstance.uniqueId}">
+                            <div class="card ability-${cardDef.ability.toLowerCase()}">
+                                <div class="card-front text-xs">
+                                    <h4 class="text-sm font-bold text-center mb-1 w-full truncate">${cardInstance.name}</h4>
+                                    <img src="${cardDef.img}" onerror="this.onerror=null;this.src='https://placehold.co/150x150/5082E4/FFFFFF?text=${cardInstance.name.substring(0, 10)}'" class="w-20 h-20 rounded-full object-cover mb-1">
+                                    <div class="stats w-full text-left text-xs mb-1">
+                                        <p class="text-red-400">HP: ${cardInstance.hp} / ${cardInstance.maxHp}</p>
+                                        <p class="text-green-400">ATK: ${cardInstance.attack}</p>
+                                        <p class="text-blue-400">DEF: ${cardInstance.defense}</p>
+                                    </div>
+                                    <p class="text-xs font-semibold text-center mt-auto">Abilità: ${cardInstance.ability}</p>
+                                    ${buttonHtml}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                 container.innerHTML = `<h3 class="w-full text-center text-xl font-semibold mb-2 text-red-400">Campo Sconfitto!</h3>`;
+            }
+        };
+
+        const renderOpponentFields = (playerData, myPlayerId) => {
+            const container = document.getElementById('opponents-field');
+            container.innerHTML = `<h3 class="w-full text-center text-xl font-semibold mb-2">Campi Avversari</h3>`;
+
+            Object.keys(playerData).filter(pId => pId !== myPlayerId).forEach(pId => {
+                const opponent = playerData[pId];
+                const isAlive = opponent.status === 'alive';
+                const isTargeted = selectedTargetPlayerId === pId;
+
+                let fieldHtml = '';
+                if (isAlive && opponent.field.length > 0) {
+                    opponent.field.forEach((cardInstance, index) => {
+                        const cardDef = __CARD_DEFINITIONS[cardInstance.id];
+                        if (!cardDef) return;
+
+                        const cardClass = selectedTargetPlayerId === pId && selectedTargetCardIndex === index ? 'border-4 border-red-500' : '';
+                        const targetButton = selectedMove ? `<button onclick="setTarget('${pId}', ${index})" class="absolute inset-0 bg-red-600 bg-opacity-70 text-white font-bold text-lg rounded-xl opacity-0 hover:opacity-100 transition duration-300">BERSAGLIO</button>` : '';
+
+                        fieldHtml += `
+                            <div class="card-container relative ${cardClass}" data-card-uid="${cardInstance.uniqueId}">
+                                <div class="card ability-${cardDef.ability.toLowerCase()}">
+                                    <div class="card-front text-xs">
+                                        <h4 class="text-sm font-bold text-center mb-1 w-full truncate">${cardInstance.name}</h4>
+                                        <img src="${cardDef.img}" onerror="this.onerror=null;this.src='https://placehold.co/150x150/5082E4/FFFFFF?text=${cardInstance.name.substring(0, 10)}'" class="w-20 h-20 rounded-full object-cover mb-1">
+                                        <div class="stats w-full text-left text-xs mb-1">
+                                            <p class="text-red-400">HP: ${cardInstance.hp} / ${cardInstance.maxHp}</p>
+                                            <p class="text-green-400">ATK: ??</p>
+                                            <p class="text-blue-400">DEF: ??</p>
+                                        </div>
+                                        <p class="text-xs font-semibold text-center mt-auto">Abilità: ${cardInstance.ability}</p>
+                                    </div>
+                                </div>
+                                ${targetButton}
+                            </div>
+                        `;
+                    });
+                } else {
+                    fieldHtml = `<p class="text-gray-500 mt-8">Giocatore Sconfitto o Campo Vuoto</p>`;
+                }
+
+                container.innerHTML += `
+                    <div class="w-full lg:w-1/2 p-4 bg-gray-900 rounded-lg shadow-inner">
+                        <h4 class="text-lg font-bold mb-2 text-center ${isAlive ? 'text-white' : 'text-red-600'}">
+                            ${opponent.name} (${opponent.defeatedCount} Sconfitti)
+                        </h4>
+                        <div class="flex flex-wrap gap-3 justify-center">
+                            ${fieldHtml}
+                        </div>
+                    </div>
+                `;
+            });
+        };
+
+        const handleReplacementSelection = (myData, defeatedUniqueId) => {
+            const container = document.getElementById('replacement-deck-cards');
+            const defeatedCard = Object.values(currentGameState.playerData).flatMap(p => p.field).find(c => c.uniqueId === defeatedUniqueId);
+
+            document.getElementById('defeated-card-name').textContent = defeatedCard ? defeatedCard.name : 'Carta Sconosciuta';
+            document.getElementById('select-replacement').classList.remove('hidden');
+            container.innerHTML = '';
+
+            // Renderizza il deck per la selezione
+            myData.deck.forEach(cardId => {
+                const cardDef = __CARD_DEFINITIONS[cardId];
+                if (!cardDef) return;
+
+                const imgUrl = cardDef.img || `https://placehold.co/150x150/5082E4/FFFFFF?text=${cardDef.name}`;
+
+                container.innerHTML += `
+                    <div class="card-container" onclick="submitReplacement('${cardId}', '${defeatedUniqueId}')">
+                        <div class="card ability-${cardDef.ability.toLowerCase()}">
+                            <div class="card-front text-xs justify-center p-3">
+                                <h4 class="text-sm font-bold text-center mb-1 w-full truncate">${cardDef.name}</h4>
+                                <img src="${imgUrl}" onerror="this.onerror=null;this.src='https://placehold.co/150x150/5082E4/FFFFFF?text=${cardDef.name.substring(0, 10)}'" class="w-16 h-16 rounded-full object-cover mb-2">
+                                <p class="text-xs text-red-400">HP: ${cardDef.maxHp}</p>
+                                <button class="mt-2 w-full py-1 text-xs rounded bg-green-600 hover:bg-green-700">Sostituisci</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (myData.deck.length === 0) {
+                 document.getElementById('select-replacement').innerHTML = `<h4 class="text-lg font-bold mb-3 text-red-400">Il tuo Deck è Vuoto. Hai perso questa carta.</h4>`;
+                 // Se il deck è vuoto e non ci sono carte in campo, finisce la partita per il giocatore.
+                 if (myData.field.length === 0) {
+                     submitReplacement('NO_REPLACEMENT', defeatedUniqueId); // Invia una mossa 'rinuncia'
+                 }
+            }
+        };
+
+        window.submitReplacement = async (newCardId, defeatedUniqueId) => {
+            if (!currentRoomId) return;
+
+            const move = {
+                playerId: userId,
+                type: 'replacement',
+                defeatedUniqueId: defeatedUniqueId,
+                newCardId: newCardId === 'NO_REPLACEMENT' ? null : newCardId
+            };
+
+            await executeMove(move);
+            resetMoveSelection(); // Resetta lo stato di selezione
+        };
+
+        const handleMoveSelection = (myData) => {
+            document.getElementById('select-move-target').classList.remove('hidden');
+            const activeCardSelectionEl = document.getElementById('active-card-selection');
+            activeCardSelectionEl.innerHTML = '';
+
+            // Seleziona Carta Attiva
+            myData.field.forEach(cardInstance => {
+                const isSelected = selectedActiveCardId === cardInstance.uniqueId;
+                activeCardSelectionEl.innerHTML += `
+                    <button onclick="setActiveCard('${cardInstance.uniqueId}')" class="p-2 rounded-lg transition duration-200 ${isSelected ? 'bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}">
+                        ${cardInstance.name}
+                    </button>
+                `;
+            });
+
+            // Seleziona Mossa
+            const moveSelectionEl = document.getElementById('move-selection');
+            const targetSelectionEl = document.getElementById('target-selection');
+            const executeBtn = document.getElementById('execute-move-btn');
+
+            if (selectedActiveCardId) {
+                const activeCard = myData.field.find(c => c.uniqueId === selectedActiveCardId);
+                document.getElementById('selected-card-move-name').textContent = activeCard.name;
+                moveSelectionEl.innerHTML = `<h5 class="text-md font-semibold text-gray-400">Mosse di ${activeCard.name}:</h5>`;
+
+                activeCard.moves.forEach((move, index) => {
+                    const isSelected = selectedMove && selectedMove.name === move.name;
+                    moveSelectionEl.innerHTML += `
+                        <button onclick="selectMove('${index}')" class="p-2 rounded-lg transition duration-200 ${isSelected ? 'bg-green-700' : 'bg-yellow-600 hover:bg-yellow-700'}">
+                            ${move.name} (Dmg: ${move.damage}, Bersagli: ${move.targets})
+                        </button>
+                    `;
+                });
+            } else {
+                document.getElementById('selected-card-move-name').textContent = '...';
+                moveSelectionEl.innerHTML = '<p class="text-center text-gray-500">Seleziona una carta attiva.</p>';
+                targetSelectionEl.classList.add('hidden');
+                executeBtn.disabled = true;
+                return;
+            }
+
+            // Seleziona Bersaglio
+            if (selectedMove) {
+                targetSelectionEl.classList.remove('hidden');
+                executeBtn.disabled = false;
+            } else {
+                targetSelectionEl.classList.add('hidden');
+                executeBtn.disabled = true;
+            }
+        };
+
+        window.setActiveCard = (uniqueId) => {
+            selectedActiveCardId = uniqueId;
+            selectedMove = null; // Resetta la mossa
+            selectedTargetPlayerId = null; // Resetta il bersaglio
+            selectedTargetCardIndex = null;
+            renderGame({ id: currentRoomId, gameState: currentGameState, status: 'playing', players: currentGameState.playerData });
+        };
+
+        window.selectMove = (moveIndex) => {
+            const activeCard = currentGameState.playerData[userId].field.find(c => c.uniqueId === selectedActiveCardId);
+            selectedMove = activeCard.moves[moveIndex];
+            selectedTargetPlayerId = null; // Resetta il bersaglio
+            selectedTargetCardIndex = null;
+            renderGame({ id: currentRoomId, gameState: currentGameState, status: 'playing', players: currentGameState.playerData });
+        };
+
+        window.setTarget = (playerId, cardIndex) => {
+            selectedTargetPlayerId = playerId;
+            selectedTargetCardIndex = cardIndex;
+            renderGame({ id: currentRoomId, gameState: currentGameState, status: 'playing', players: currentGameState.playerData });
+        };
+
+        document.getElementById('execute-move-btn').addEventListener('click', async () => {
+            if (selectedActiveCardId && selectedMove) {
+                const activeCard = currentGameState.playerData[userId].field.find(c => c.uniqueId === selectedActiveCardId);
+                const move = {
+                    playerId: userId,
+                    type: 'action',
+                    activeCardUniqueId: selectedActiveCardId,
+                    moveName: selectedMove.name,
+                    targetPlayerId: selectedTargetPlayerId,
+                    targetCardIndex: selectedTargetCardIndex
+                    // Aggiungere dettagli della mossa se necessario per la logica
+                };
+                await executeMove(move);
+                resetMoveSelection();
+            }
+        });
+
+        const resetMoveSelection = () => {
+            selectedActiveCardId = null;
+            selectedMove = null;
+            selectedTargetPlayerId = null;
+            selectedTargetCardIndex = null;
+        };
+
+        // --- Logica Esecuzione Mossa (Comune a Umani e CPU) ---
+        async function executeMove(move) {
+            const roomRef = doc(db, `artifacts/${appId}/public/data`, 'gameSessions', currentRoomId);
+            const gameState = JSON.parse(JSON.stringify(currentGameState)); // Copia profonda dello stato
+
+            let newLogEntry = '';
+            let isReplacementMove = false;
+
+            if (move.type === 'action') {
+                const actingPlayer = gameState.playerData[move.playerId];
+                const activeCard = actingPlayer.field.find(c => c.uniqueId === move.activeCardUniqueId);
+
+                // Trova la mossa dal nome (o indice, ma il nome è più sicuro)
+                const moveDef = activeCard.moves.find(m => m.name === move.moveName);
+
+                // Calcola danno
+                let damage = moveDef.damage;
+
+                // Logica d'attacco semplificata
+                if (move.targetPlayerId && move.targetCardIndex !== null) {
+                    const targetPlayer = gameState.playerData[move.targetPlayerId];
+                    const targetCard = targetPlayer.field[move.targetCardIndex];
+
+                    if (targetCard) {
+                        const effectiveDefense = targetCard.defense;
+                        const finalDamage = Math.max(1, damage - effectiveDefense); // Minimo 1 danno
+                        targetCard.hp -= finalDamage;
+
+                        newLogEntry = `${actingPlayer.name} usa ${move.moveName} con ${activeCard.name} su ${targetCard.name} di ${targetPlayer.name} per ${finalDamage} danni.`;
+
+                        // Verifica sconfitta
+                        if (targetCard.hp <= 0) {
+                            targetCard.hp = 0;
+                            newLogEntry += ` ${targetCard.name} è stato SCONFITTO!`;
+                            targetPlayer.defeatedCount += 1;
+                            targetPlayer.field.splice(move.targetCardIndex, 1); // Rimuovi dal campo
+
+                            // Controlla se è necessario un rimpiazzo
+                            if (targetPlayer.field.length < targetPlayer.fieldLimit && targetPlayer.deck.length > 0) {
+                                gameState.status = 'select_replacement';
+                                gameState.replacementNeededForPlayer = move.targetPlayerId;
+                                gameState.replacementNeededUniqueId = targetCard.uniqueId;
+                            } else if (targetPlayer.field.length === 0 && targetPlayer.deck.length === 0) {
+                                // Giocatore sconfitto
+                                targetPlayer.status = 'defeated';
+                            }
+                        }
+                    } else {
+                        newLogEntry = `${actingPlayer.name} ha mancato il bersaglio.`;
+                    }
+                }
+
+            } else if (move.type === 'replacement') {
+                isReplacementMove = true;
+                const player = gameState.playerData[move.playerId];
+                const newCardId = move.newCardId;
+
+                if (newCardId) {
+                    // Metti la nuova carta in campo
+                    const cardIndexInDeck = player.deck.indexOf(newCardId);
+                    if (cardIndexInDeck !== -1) {
+                        player.deck.splice(cardIndexInDeck, 1);
+                        const newCardInstance = createCardInstance(newCardId, move.playerId);
+                        player.field.push(newCardInstance);
+                        newLogEntry = `${player.name} sostituisce con ${newCardInstance.name}.`;
+                    } else {
+                        newLogEntry = `${player.name} non ha trovato la carta nel deck.`;
+                    }
+                } else {
+                    // Nessun rimpiazzo (deck vuoto o scelta)
+                    newLogEntry = `${player.name} non ha carte da rimpiazzare.`;
+                }
+
+                // Resetta lo stato di rimpiazzo
+                gameState.status = 'playing';
+                delete gameState.replacementNeededForPlayer;
+                delete gameState.replacementNeededUniqueId;
+            }
+
+            // Aggiungi log
+            gameState.log.unshift(newLogEntry);
+            if (gameState.log.length > 20) gameState.log.pop();
+
+            // Passa al turno successivo solo dopo una mossa d'azione O se il rimpiazzo è completato e non c'è più bisogno di rimpiazzi
+            if (move.type === 'action' || (isReplacementMove && gameState.status === 'playing')) {
+                // Controlla la vittoria
+                const activePlayers = Object.keys(gameState.playerData).filter(pId => gameState.playerData[pId].status === 'alive');
+                if (activePlayers.length <= 1) {
+                    gameState.status = 'finished';
+                    gameState.winnerId = activePlayers[0] || null;
+                    await updateDoc(roomRef, { gameState: gameState, status: 'finished', finishedAt: new Date().toISOString() });
+                    return;
+                }
+
+                // Passa al giocatore successivo
+                if (gameState.status === 'playing') {
+                    do {
+                        gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.playerOrder.length;
+                    } while (gameState.playerData[gameState.playerOrder[gameState.currentPlayerIndex]].status !== 'alive');
+
+                    gameState.turn++;
+                }
+            }
+
+            await updateDoc(roomRef, { gameState: gameState });
+        }
+
+        // Funzione semplificata per la CPU
+        async function executeCPUMove() {
+            const cpuId = currentGameState.playerOrder[currentGameState.currentPlayerIndex];
+            const cpuData = currentGameState.playerData[cpuId];
+
+            if (currentGameState.status === 'select_replacement' && currentGameState.replacementNeededForPlayer === cpuId) {
+                // Mossa di rimpiazzo CPU
+                const newCardId = cpuData.deck[Math.floor(Math.random() * cpuData.deck.length)] || 'NO_REPLACEMENT';
+                const move = {
+                    playerId: cpuId,
+                    type: 'replacement',
+                    defeatedUniqueId: currentGameState.replacementNeededUniqueId,
+                    newCardId: newCardId
+                };
+                await executeMove(move);
+                return;
+            }
+
+            // Mossa d'azione CPU
+            if (cpuData.field.length === 0) return; // Non dovrebbe succedere se il gioco è corretto
+
+            const activeCard = cpuData.field[Math.floor(Math.random() * cpuData.field.length)];
+            const moveDef = activeCard.moves[Math.floor(Math.random() * activeCard.moves.length)];
+
+            // Trova un bersaglio vivo (se necessario)
+            const opponentIds = Object.keys(currentGameState.playerData).filter(pId => pId !== cpuId && currentGameState.playerData[pId].status === 'alive' && currentGameState.playerData[pId].field.length > 0);
+
+            if (opponentIds.length === 0) return; // Nessun bersaglio
+
+            const targetPlayerId = opponentIds[Math.floor(Math.random() * opponentIds.length)];
+            const targetPlayer = currentGameState.playerData[targetPlayerId];
+            const targetCardIndex = Math.floor(Math.random() * targetPlayer.field.length);
+
+            const move = {
+                playerId: cpuId,
+                type: 'action',
+                activeCardUniqueId: activeCard.uniqueId,
+                moveName: moveDef.name,
+                targetPlayerId: targetPlayerId,
+                targetCardIndex: targetCardIndex
+            };
+
+            await executeMove(move);
+        }
+
+        async function handleGameEnd(roomData) {
+            const gameData = roomData.gameState;
+            const myPlayerId = userId;
+            const players = Object.keys(gameData.playerData);
+
+            // Determina il tuo piazzamento
+            const defeatedPlayers = players.filter(id => gameData.playerData[id].status === 'defeated');
+            const myStatus = gameData.playerData[myPlayerId].status;
+
+            let rank = 0;
+            if (myStatus === 'alive') {
+                rank = 1; // Vincitore
+            } else if (roomData.mode === '1v1') {
+                rank = 2; // Sconfitto
+            } else {
+                // Determina il rank in base al numero di sconfitti. Più defeatedCount, migliore è il piazzamento tra i non vincenti
+                const defeatedByCount = players.filter(id => gameData.playerData[id].status === 'defeated').sort((a, b) => gameData.playerData[b].defeatedCount - gameData.playerData[a].defeatedCount);
+                rank = defeatedByCount.findIndex(id => id === myPlayerId) + (players.length - defeatedPlayers.length) + 1;
+            }
+
+            let minCoins = 0, maxCoins = 0;
+            let resultMessage = '';
+
+            if (roomData.mode === '1v1') {
+                if (rank === 1) {
+                    minCoins = 100; maxCoins = 140; resultMessage = "Hai Vinto la partita 1 vs 1!";
+                    await updateUserData({ wins: userData.wins + 1 });
+                } else {
+                    minCoins = 20; maxCoins = 35; resultMessage = "Hai Perso la partita 1 vs 1.";
+                    await updateUserData({ losses: userData.losses + 1 });
+                }
+            } else { // FFA 1v1v1v1
+                if (rank === 1) { minCoins = 100; maxCoins = 140; resultMessage = "Hai Vinto il Free-For-All!"; await updateUserData({ wins: userData.wins + 1 }); }
+                else if (rank === 2) { minCoins = 55; maxCoins = 90; resultMessage = "Secondo posto!"; }
+                else if (rank === 3) { minCoins = 37; maxCoins = 50; resultMessage = "Terzo posto!"; }
+                else { minCoins = 20; maxCoins = 35; resultMessage = "Quarto posto."; await updateUserData({ losses: userData.losses + 1 }); }
+            }
+
+            const earnedCoins = Math.floor(Math.random() * (maxCoins - minCoins + 1) + minCoins);
+            let newCardUnlocked = null;
+            let newUnlockedCards = userData.unlockedCards;
+            let rewardsListHtml = `<li><span class="font-bold text-yellow-300">${earnedCoins} Monete</span></li>`;
+
+            // Chance di trovare una carta nuova per il 1° posto
+            if (rank === 1 && Math.random() < 0.15) { // 15% chance
+                const allCardIds = Object.keys(__CARD_DEFINITIONS);
+                const lockedCards = allCardIds.filter(id => !userData.unlockedCards.includes(id));
+                if (lockedCards.length > 0) {
+                    newCardUnlocked = __CARD_DEFINITIONS[lockedCards[Math.floor(Math.random() * lockedCards.length)]];
+                    newUnlockedCards.push(newCardUnlocked.id);
+                    rewardsListHtml += `<li>Carta Sbloccata: <span class="font-bold text-green-400">${newCardUnlocked.name}</span>!</li>`;
+                }
+            }
+
+            document.getElementById('result-message').textContent = resultMessage;
+            document.getElementById('rewards-list').innerHTML = rewardsListHtml;
+            document.getElementById('game-results').classList.remove('hidden');
+
+            // Aggiorna il profilo utente
+            await updateUserData({ coins: userData.coins + earnedCoins, unlockedCards: newUnlockedCards, lastPlayed: new Date().toISOString() });
+
+            // Cancella la sessione di gioco (solo l'host)
+            if (roomData.hostId === myPlayerId) {
+                try {
+                    await deleteDoc(doc(db, `artifacts/${appId}/public/data`, 'gameSessions', roomData.id));
+                } catch (e) {
+                    console.error("Errore nella cancellazione della sessione dopo la fine:", e);
+                }
+            }
+        }
+
+        // Avvia l'app
+        window.onload = initializeAppAndAuth;
+    </script>
+</body>
+</html>
