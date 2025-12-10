@@ -15,10 +15,14 @@
             color: #c9d1d9;
         }
         .card-container {
-            width: 150px;
-            height: 220px;
+            width: 140px; /* Leggermente più piccole per stare meglio sul tavolo */
+            height: 200px;
             perspective: 1000px;
             cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .card-container:hover {
+            transform: translateY(-5px);
         }
         .card {
             width: 100%;
@@ -28,6 +32,7 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
             border-radius: 12px;
             border: 3px solid transparent;
+            background: #1f2730;
         }
         .card-front, .card-back {
             position: absolute;
@@ -35,7 +40,7 @@
             height: 100%;
             backface-visibility: hidden;
             border-radius: 10px;
-            padding: 8px;
+            padding: 6px;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
@@ -53,10 +58,14 @@
             justify-content: center;
             font-size: 20px;
             font-weight: bold;
+            border: 2px solid #4a5568;
+            background-image: repeating-linear-gradient(45deg, #2c5282 25%, #2a4365 25%, #2a4365 50%, #2c5282 50%, #2c5282 75%, #2a4365 75%, #2a4365 100%);
+            background-size: 20px 20px;
         }
         .card.flipped {
             transform: rotateY(180deg);
         }
+        /* Bordi colorati per rarità/tipo */
         .ability-guerriero { border-color: #ef4444; }
         .ability-lanciatore { border-color: #3b82f6; }
         .ability-curatore { border-color: #10b981; }
@@ -67,21 +76,97 @@
         .game-screen-container {
             min-height: 100vh;
         }
+
+        /* --- STILI TAVOLO DA GIOCO --- */
+        #battle-table {
+            position: relative;
+            width: 100%;
+            height: 650px; /* Altezza fissa per il tavolo */
+            background-color: #1a472a; /* Verde panno da gioco */
+            border: 12px solid #5d4037; /* Bordo legno */
+            border-radius: 20px;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .player-zone {
+            position: absolute;
+            padding: 10px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.5s ease;
+        }
+
+        /* Zona Giocatore (Tu) - In Basso */
+        .zone-bottom {
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 230px;
+            background-color: rgba(0, 0, 0, 0.3); /* Base scura */
+            border-top: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Zona Opposto (1v1) - In Alto */
+        .zone-top {
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 230px;
+            background-color: rgba(255, 0, 0, 0.15); /* Rosso leggero */
+            border-bottom: 2px solid rgba(255, 0, 0, 0.3);
+        }
+
+        /* Zone Laterali (FFA) */
+        .zone-left {
+            top: 50%;
+            left: 10px;
+            transform: translateY(-50%) rotate(90deg);
+            width: 400px;
+            height: 180px;
+            background-color: rgba(255, 255, 0, 0.1);
+        }
+
+        .zone-right {
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%) rotate(-90deg);
+            width: 400px;
+            height: 180px;
+            background-color: rgba(0, 0, 255, 0.1);
+        }
+
+        .card-name-text {
+            /* Fix per testo tagliato */
+            white-space: normal;
+            line-height: 1.1;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            font-size: 0.8rem;
+        }
+
     </style>
 </head>
 <body>
-    <div id="app" class="p-4 sm:p-8 game-screen-container">
+    <div id="app" class="p-2 sm:p-4 game-screen-container max-w-7xl mx-auto">
         <div id="loading-screen" class="flex flex-col items-center justify-center min-h-screen text-xl">
             <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
-            <p class="mt-4">Caricamento in corso... (v1.1)</p>
+            <p class="mt-4">Caricamento in corso... (v1.2 Fixed)</p>
         </div>
 
         <!-- Schermo Principale/Menu -->
-        <div id="main-menu" class="hidden max-w-4xl mx-auto">
-            <div class="flex justify-between items-center mb-6 p-4 bg-gray-800 rounded-lg shadow-xl">
-                <h1 class="text-3xl font-bold text-blue-400">Cosmic Clash</h1>
-                <div>
-                    <span id="user-info" class="text-sm bg-gray-700 p-2 rounded-full mr-4"></span>
+        <div id="main-menu" class="hidden w-full">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-6 p-4 bg-gray-800 rounded-lg shadow-xl">
+                <h1 class="text-3xl font-bold text-blue-400 mb-2 md:mb-0">Cosmic Clash</h1>
+                <div class="flex items-center gap-4">
+                    <span id="user-info" class="text-sm bg-gray-700 p-2 rounded-full"></span>
                     <span id="user-coins" class="text-lg font-bold bg-yellow-600 text-yellow-100 px-4 py-2 rounded-full shadow-lg"></span>
                 </div>
             </div>
@@ -111,7 +196,7 @@
         </div>
 
         <!-- Gestione Deck -->
-        <div id="deck-manager" class="hidden max-w-5xl mx-auto">
+        <div id="deck-manager" class="hidden w-full">
             <h2 class="text-3xl font-bold mb-6 text-center text-blue-400">Gestione Deck (Max 10 Carte)</h2>
             <div class="flex justify-between items-center mb-4">
                 <button onclick="showScreen('main-menu')" class="bg-gray-600 hover:bg-gray-700 p-2 rounded-lg transition duration-200">← Torna al Menu</button>
@@ -140,17 +225,18 @@
         </div>
 
         <!-- Shop -->
-        <div id="shop" class="hidden max-w-5xl mx-auto">
+        <div id="shop" class="hidden w-full">
             <h2 class="text-3xl font-bold mb-6 text-center text-yellow-400">Shop di Carte</h2>
             <div class="flex justify-between items-center mb-6">
                 <button onclick="showScreen('main-menu')" class="bg-gray-600 hover:bg-gray-700 p-2 rounded-lg transition duration-200">← Torna al Menu</button>
                 <div class="text-lg font-bold">Monete: <span id="shop-coins" class="text-yellow-400">0</span></div>
             </div>
 
+            <div id="shop-message" class="mb-6 p-4 text-center rounded-lg bg-gray-700 text-xl font-bold hidden"></div>
+
             <div id="shop-cards-list" class="flex flex-wrap gap-6 justify-center">
                 <!-- Carte in vendita verranno iniettate qui -->
             </div>
-            <div id="shop-message" class="mt-6 p-4 text-center rounded-lg bg-gray-700 hidden"></div>
         </div>
 
         <!-- Creazione Stanza -->
@@ -223,30 +309,27 @@
             <div id="lobby-message" class="mt-4 p-3 text-center rounded-lg bg-gray-700 hidden"></div>
         </div>
 
-        <!-- Schermo di Gioco -->
+        <!-- Schermo di Gioco - BATTAGLIA -->
         <div id="game-screen" class="hidden w-full mx-auto">
-            <h2 class="text-3xl font-bold mb-4 text-center text-blue-400">Arena di Battaglia</h2>
-            <div class="flex justify-between items-center mb-6 p-3 bg-gray-800 rounded-lg shadow-xl">
+            <div class="flex justify-between items-center mb-4 p-3 bg-gray-800 rounded-lg shadow-xl">
                 <div class="flex-1">Turno di: <span id="current-player-name" class="font-bold text-yellow-400"></span></div>
                 <div class="flex-1 text-center">Modalità: <span id="game-mode-display" class="font-bold"></span></div>
                 <div class="flex-1 text-right">Mazzo Rimanente: <span id="deck-left-count" class="font-bold">0</span></div>
             </div>
 
-            <!-- Campo di Gioco Avversari -->
-            <div id="opponents-field" class="flex flex-wrap justify-center gap-4 mb-8 p-4 bg-gray-800 rounded-xl shadow-inner">
-                <h3 class="w-full text-center text-xl font-semibold mb-2">Campi Avversari</h3>
-                <!-- Campi avversari verranno iniettati qui -->
+            <!-- TAVOLO DA GIOCO (Nuovo Layout) -->
+            <div id="battle-table">
+                <!-- I giocatori verranno posizionati qui via JS -->
+                
+                <!-- Placeholder per quando è vuoto -->
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span class="text-white opacity-20 text-6xl font-bold">VS</span>
+                </div>
             </div>
 
             <!-- Log delle Mosse -->
-            <div id="move-log" class="mb-6 max-h-40 overflow-y-auto p-3 bg-gray-900 rounded-lg text-sm">
+            <div id="move-log" class="mb-4 max-h-32 overflow-y-auto p-3 bg-gray-900 rounded-lg text-sm border border-gray-700">
                 <p class="text-gray-500">Inizio Partita...</p>
-            </div>
-
-            <!-- Carte sul Campo del Giocatore -->
-            <div id="player-field" class="flex justify-center gap-4 mb-6 p-4 bg-gray-800 rounded-xl shadow-2xl">
-                <h3 class="w-full text-center text-xl font-semibold mb-2 text-green-400">Il tuo Campo</h3>
-                <!-- Carte in campo del giocatore verranno iniettate qui -->
             </div>
 
             <!-- Area Azioni/Selezione Carta/Mossa -->
@@ -289,7 +372,7 @@
             </div>
 
             <!-- Schermo Risultati Partita -->
-            <div id="game-results" class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center hidden">
+            <div id="game-results" class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center hidden z-50">
                 <div class="bg-gray-800 p-8 rounded-xl shadow-2xl max-w-lg w-full text-center border-4 border-yellow-500">
                     <h3 class="text-4xl font-extrabold mb-4 text-yellow-400">PARTITA FINITA!</h3>
                     <p id="result-message" class="text-2xl mb-6"></p>
@@ -584,15 +667,9 @@
                 auth = getAuth(app);
                 setLogLevel('Debug');
 
-                // FIX: Spostata la logica di caricamento carte dentro onAuthStateChanged per evitare errori di permessi
-                // prima del login.
-
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
-
-                        // Carica la lista delle carte nel database se non esiste (simulazione)
-                        // Eseguito SOLO dopo che l'utente è autenticato per rispettare le regole di sicurezza
                         try {
                             const cardsCollectionRef = collection(db, `artifacts/${appId}/public/data`, 'cards');
                             const cardsSnapshot = await getDocs(cardsCollectionRef);
@@ -605,13 +682,11 @@
                                 console.log("Collezione carte popolata.");
                             }
                         } catch (e) {
-                            console.warn("Impossibile inizializzare carte DB (probabilmente regole di sicurezza o già presenti):", e);
-                            // Continua comunque, useremo le definizioni locali se necessario
+                            console.warn("Impossibile inizializzare carte DB:", e);
                         }
 
                         loadUserAndListen(userId);
                     } else {
-                        // Non dovrebbe accadere se l'autenticazione è corretta
                         console.log("Nessun utente loggato.");
                     }
                 });
@@ -629,40 +704,45 @@
         };
 
         // --- Logica di Gioco e Funzioni UI ---
-        // ... (resto del codice invariato)
 
-        const createCardHTML = (cardDef, deckAction = null) => {
-            const currentCardData = userData.deck.find(c => c.id === cardDef.id) || cardDef; // Usa i dati di gioco se disponibili
-            const isDecked = userData.deck.includes(cardDef.id);
+        const createCardHTML = (cardDef, deckAction = null, inBattle = false) => {
+            if (!cardDef) return '';
+            const currentCardData = userData && userData.deck ? (userData.deck.find(c => c.id === cardDef.id) || cardDef) : cardDef; 
+            const isDecked = userData && userData.deck ? userData.deck.includes(cardDef.id) : false;
 
             // Aggiungi un'immagine di fallback nel caso in cui l'URL sia problematico
             const imgUrl = cardDef.img || `https://placehold.co/150x150/5082E4/FFFFFF?text=${cardDef.name}`;
 
             let actionButton = '';
             if (deckAction === 'collection') {
-                actionButton = `<button data-card-id="${cardDef.id}" onclick="toggleDeck(this)" class="mt-2 w-full py-1 text-xs rounded transition duration-200 ${isDecked ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}">
+                actionButton = `<button data-card-id="${cardDef.id}" onclick="toggleDeck(this)" class="mt-auto w-full py-1 text-xs rounded transition duration-200 ${isDecked ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}">
                     ${isDecked ? 'Rimuovi' : 'Aggiungi'}
                 </button>`;
             } else if (deckAction === 'shop') {
                 const canAfford = userData.coins >= cardDef.shopPrice;
                 const isUnlocked = userData.unlockedCards.includes(cardDef.id);
-                actionButton = `<button data-card-id="${cardDef.id}" data-price="${cardDef.shopPrice}" onclick="buyCard(this)" ${!canAfford || isUnlocked ? 'disabled' : ''} class="mt-2 w-full py-1 text-xs rounded transition duration-200 ${canAfford ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-gray-500'} disabled:opacity-50">
+                actionButton = `<button data-card-id="${cardDef.id}" data-price="${cardDef.shopPrice}" onclick="buyCard(this)" ${!canAfford || isUnlocked ? 'disabled' : ''} class="mt-auto w-full py-1 text-xs rounded transition duration-200 ${canAfford ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-gray-500'} disabled:opacity-50">
                     ${isUnlocked ? 'Sbloccata' : `${cardDef.shopPrice} Monete`}
                 </button>`;
             }
+
+            // Se siamo in battaglia, non mostrare HP/ATK/DEF statici qui, verranno gestiti dal renderPlayerField dinamico
+            const statsBlock = inBattle ? '' : `
+                <div class="stats w-full text-left text-xs mb-1">
+                    <p class="text-red-400">HP: ${currentCardData.hp} / ${cardDef.maxHp}</p>
+                    <p class="text-green-400">ATK: ${cardDef.attack}</p>
+                    <p class="text-blue-400">DEF: ${cardDef.defense}</p>
+                </div>
+            `;
 
             return `
                 <div class="card-container">
                     <div class="card ability-${cardDef.ability.toLowerCase()}">
                         <div class="card-front text-xs">
-                            <h4 class="text-sm font-bold text-center mb-1 w-full truncate">${cardDef.name}</h4>
-                            <img src="${imgUrl}" onerror="this.onerror=null;this.src='https://placehold.co/150x150/5082E4/FFFFFF?text=${cardDef.name.substring(0, 10)}'" class="w-20 h-20 rounded-full object-cover mb-1">
-                            <div class="stats w-full text-left text-xs mb-1">
-                                <p class="text-red-400">HP: ${currentCardData.hp} / ${cardDef.maxHp}</p>
-                                <p class="text-green-400">ATK: ${cardDef.attack}</p>
-                                <p class="text-blue-400">DEF: ${cardDef.defense}</p>
-                            </div>
-                            <p class="text-xs font-semibold text-center mt-auto">Abilità: ${cardDef.ability}</p>
+                            <h4 class="text-sm font-bold text-center mb-1 w-full card-name-text" title="${cardDef.name}">${cardDef.name}</h4>
+                            <img src="${imgUrl}" onerror="this.onerror=null;this.src='https://placehold.co/150x150/5082E4/FFFFFF?text=${cardDef.name.substring(0, 10)}'" class="w-16 h-16 rounded-full object-cover mb-1 border-2 border-gray-600">
+                            ${statsBlock}
+                            <p class="text-xs font-semibold text-center text-gray-400 mt-auto mb-1">${cardDef.ability}</p>
                             ${actionButton}
                         </div>
                     </div>
@@ -748,15 +828,21 @@
         };
 
         window.buyCard = async (button) => {
+            // FIX: Assicurati che i tipi siano corretti
             const cardId = button.getAttribute('data-card-id');
-            const price = parseInt(button.getAttribute('data-price'));
+            const price = parseInt(button.getAttribute('data-price'), 10);
+            
+            if (!__CARD_DEFINITIONS[cardId]) return;
+
             const cardName = __CARD_DEFINITIONS[cardId].name;
             const shopMessage = document.getElementById('shop-message');
             shopMessage.classList.add('hidden');
 
-            if (userData.coins < price) {
+            // Verifica monete (confronto numerico sicuro)
+            if (parseInt(userData.coins) < price) {
                 shopMessage.textContent = "Non hai abbastanza monete per acquistare questa carta!";
                 shopMessage.classList.remove('hidden');
+                shopMessage.classList.add('bg-red-600');
                 return;
             }
             if (userData.unlockedCards.includes(cardId)) {
@@ -765,15 +851,17 @@
                 return;
             }
 
-            const newCoins = userData.coins - price;
+            const newCoins = parseInt(userData.coins) - price;
             const newUnlockedCards = [...userData.unlockedCards, cardId];
 
             await updateUserData({ coins: newCoins, unlockedCards: newUnlockedCards });
 
             shopMessage.textContent = `Acquistato ${cardName} per ${price} monete!`;
             shopMessage.classList.remove('hidden');
+            shopMessage.classList.remove('bg-red-600');
+            shopMessage.classList.add('bg-green-600');
 
-            renderShop(); // Ricarica lo shop
+            renderShop(); // Ricarica lo shop immediatamente
         };
 
         document.getElementById('set-nickname-btn').addEventListener('click', async () => {
@@ -1061,7 +1149,7 @@
             if (!def) return null;
             return {
                 id: cardId, // ID dalla definizione
-                uniqueId: `${playerId}-${cardId}-${Date.now()}`, // ID univoco nell'istanza di gioco
+                uniqueId: `${playerId}-${cardId}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`, // ID univoco più robusto
                 name: def.name,
                 ownerId: playerId,
                 hp: def.maxHp,
@@ -1081,129 +1169,143 @@
             const myPlayerId = userId;
             const myData = currentGameState.playerData[myPlayerId];
             const currentPlayerId = currentGameState.playerOrder[currentGameState.currentPlayerIndex];
+            const currentPlayer = currentGameState.playerData[currentPlayerId];
             const isMyTurn = currentPlayerId === myPlayerId;
             const isMyTurnForReplacement = roomData.status === 'select_replacement' && currentGameState.replacementNeededForPlayer === myPlayerId;
 
             document.getElementById('game-mode-display').textContent = roomData.mode;
-            document.getElementById('current-player-name').textContent = currentGameState.playerData[currentPlayerId].name;
+            document.getElementById('current-player-name').textContent = currentPlayer.name;
             document.getElementById('deck-left-count').textContent = myData ? myData.deck.length : 0;
             document.getElementById('game-message').classList.add('hidden');
 
             // Render Log
             const logEl = document.getElementById('move-log');
-            logEl.innerHTML = currentGameState.log.map(msg => `<p class="mb-1">${msg}</p>`).reverse().join('');
-            logEl.scrollTop = logEl.scrollHeight;
+            logEl.innerHTML = currentGameState.log.map(msg => `<p class="mb-1 border-b border-gray-800 pb-1">${msg}</p>`).reverse().join('');
+            
+            // --- RENDER TAVOLO ---
+            const table = document.getElementById('battle-table');
+            // Pulisci il tavolo mantenendo il placeholder VS
+            table.innerHTML = '<div class="absolute inset-0 flex items-center justify-center pointer-events-none"><span class="text-white opacity-20 text-6xl font-bold">VS</span></div>';
 
-            // Render Campi
-            renderPlayerField(myData, document.getElementById('player-field'), isMyTurn);
-            renderOpponentFields(currentGameState.playerData, myPlayerId);
+            // 1. RENDER PLAYER (TU) - BOTTOM
+            const myZone = document.createElement('div');
+            myZone.className = 'player-zone zone-bottom';
+            renderZoneContent(myZone, myData, myPlayerId, true, isMyTurn); // isMe = true
+            table.appendChild(myZone);
 
-            // Gestione Area Azioni
+            // 2. RENDER OPPONENTS
+            const opponents = Object.keys(currentGameState.playerData).filter(id => id !== myPlayerId);
+            
+            if (roomData.mode === '1v1' && opponents.length > 0) {
+                // Opponent TOP
+                const oppId = opponents[0];
+                const oppZone = document.createElement('div');
+                oppZone.className = 'player-zone zone-top';
+                renderZoneContent(oppZone, currentGameState.playerData[oppId], oppId, false, false);
+                table.appendChild(oppZone);
+            } else {
+                // Logic per FFA: Top, Left, Right
+                const positions = ['zone-top', 'zone-left', 'zone-right'];
+                opponents.forEach((oppId, index) => {
+                    if (index < positions.length) {
+                        const oppZone = document.createElement('div');
+                        oppZone.className = `player-zone ${positions[index]}`;
+                        renderZoneContent(oppZone, currentGameState.playerData[oppId], oppId, false, false);
+                        table.appendChild(oppZone);
+                    }
+                });
+            }
+
+            // Gestione Area Azioni (Rimasta sotto il tavolo)
             document.getElementById('select-replacement').classList.add('hidden');
             document.getElementById('select-move-target').classList.add('hidden');
 
             if (roomData.status === 'select_replacement' && isMyTurnForReplacement) {
-                // FASE: Sostituzione Carta
                 handleReplacementSelection(myData, currentGameState.replacementNeededUniqueId);
             } else if (roomData.status === 'playing' && isMyTurn) {
-                // FASE: Mossa
                 handleMoveSelection(myData);
-                if (myData.isCPU) {
-                    // Mossa automatica per la CPU
-                    setTimeout(executeCPUMove, 2000);
-                }
             } else if (roomData.status === 'playing' && !isMyTurn) {
-                 document.getElementById('game-message').textContent = `Attendi il turno di ${currentGameState.playerData[currentPlayerId].name}...`;
+                 document.getElementById('game-message').textContent = `Attendi il turno di ${currentPlayer.name}...`;
                  document.getElementById('game-message').classList.remove('hidden');
             }
-        };
 
-        const renderPlayerField = (playerData, container, isMyTurn) => {
-            container.innerHTML = `<h3 class="w-full text-center text-xl font-semibold mb-2 text-green-400">Il tuo Campo</h3>`;
-            if (playerData && playerData.field.length > 0) {
-                playerData.field.forEach((cardInstance, index) => {
-                    const cardDef = __CARD_DEFINITIONS[cardInstance.id];
-                    if (!cardDef) return;
-
-                    const isSelected = selectedActiveCardId === cardInstance.uniqueId;
-                    const buttonHtml = isMyTurn ? `<button onclick="setActiveCard('${cardInstance.uniqueId}')" class="mt-2 w-full py-1 text-xs rounded transition duration-200 ${isSelected ? 'bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}">
-                            ${isSelected ? 'SELEZIONATO' : 'SELEZIONA'}
-                        </button>` : '';
-
-                    container.innerHTML += `
-                        <div class="card-container" data-card-uid="${cardInstance.uniqueId}">
-                            <div class="card ability-${cardDef.ability.toLowerCase()}">
-                                <div class="card-front text-xs">
-                                    <h4 class="text-sm font-bold text-center mb-1 w-full truncate">${cardInstance.name}</h4>
-                                    <img src="${cardDef.img}" onerror="this.onerror=null;this.src='https://placehold.co/150x150/5082E4/FFFFFF?text=${cardInstance.name.substring(0, 10)}'" class="w-20 h-20 rounded-full object-cover mb-1">
-                                    <div class="stats w-full text-left text-xs mb-1">
-                                        <p class="text-red-400">HP: ${cardInstance.hp} / ${cardInstance.maxHp}</p>
-                                        <p class="text-green-400">ATK: ${cardInstance.attack}</p>
-                                        <p class="text-blue-400">DEF: ${cardInstance.defense}</p>
-                                    </div>
-                                    <p class="text-xs font-semibold text-center mt-auto">Abilità: ${cardInstance.ability}</p>
-                                    ${buttonHtml}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-            } else {
-                 container.innerHTML = `<h3 class="w-full text-center text-xl font-semibold mb-2 text-red-400">Campo Sconfitto!</h3>`;
+            // --- CPU LOGIC FIX ---
+            // Se il giocatore corrente è una CPU, e IO sono l'host, eseguo la mossa per lui.
+            if (roomData.hostId === userId && currentPlayer.isCPU && (roomData.status === 'playing' || (roomData.status === 'select_replacement' && currentGameState.replacementNeededForPlayer === currentPlayerId))) {
+                 setTimeout(executeCPUMove, 1500); // 1.5s delay per realismo
             }
         };
 
-        const renderOpponentFields = (playerData, myPlayerId) => {
-            const container = document.getElementById('opponents-field');
-            container.innerHTML = `<h3 class="w-full text-center text-xl font-semibold mb-2">Campi Avversari</h3>`;
+        const renderZoneContent = (container, pData, pId, isMe, isMyTurn) => {
+            if (!pData) return;
+            
+            // Info Nome
+            const nameBadge = document.createElement('div');
+            nameBadge.className = 'absolute -top-4 left-1/2 transform -translate-x-1/2 bg-gray-900 px-3 py-1 rounded-full text-xs font-bold border border-gray-600 z-10 whitespace-nowrap';
+            nameBadge.innerHTML = `${pData.name} <span class="${pData.status === 'alive' ? 'text-green-400' : 'text-red-500'}">(${pData.hp || 'Alive'})</span>`;
+            container.appendChild(nameBadge);
 
-            Object.keys(playerData).filter(pId => pId !== myPlayerId).forEach(pId => {
-                const opponent = playerData[pId];
-                const isAlive = opponent.status === 'alive';
-                const isTargeted = selectedTargetPlayerId === pId;
+            if (pData.status !== 'alive') {
+                container.innerHTML += `<div class="text-red-500 font-bold text-2xl rotate-12 border-4 border-red-500 p-2 rounded transform">SCONFITTO</div>`;
+                return;
+            }
 
-                let fieldHtml = '';
-                if (isAlive && opponent.field.length > 0) {
-                    opponent.field.forEach((cardInstance, index) => {
-                        const cardDef = __CARD_DEFINITIONS[cardInstance.id];
-                        if (!cardDef) return;
+            const cardsDiv = document.createElement('div');
+            cardsDiv.className = 'flex gap-2 justify-center items-center w-full h-full';
+            
+            pData.field.forEach((cardInstance, index) => {
+                const cardDef = __CARD_DEFINITIONS[cardInstance.id];
+                if (!cardDef) return;
 
-                        const cardClass = selectedTargetPlayerId === pId && selectedTargetCardIndex === index ? 'border-4 border-red-500' : '';
-                        const targetButton = selectedMove ? `<button onclick="setTarget('${pId}', ${index})" class="absolute inset-0 bg-red-600 bg-opacity-70 text-white font-bold text-lg rounded-xl opacity-0 hover:opacity-100 transition duration-300">BERSAGLIO</button>` : '';
+                const isSelected = selectedActiveCardId === cardInstance.uniqueId;
+                const isTarget = selectedTargetPlayerId === pId && selectedTargetCardIndex === index;
+                
+                // Stili interattivi
+                let borderClass = 'border-gray-600';
+                if (isSelected) borderClass = 'border-yellow-400 ring-2 ring-yellow-400';
+                if (isTarget) borderClass = 'border-red-500 ring-4 ring-red-600';
 
-                        fieldHtml += `
-                            <div class="card-container relative ${cardClass}" data-card-uid="${cardInstance.uniqueId}">
-                                <div class="card ability-${cardDef.ability.toLowerCase()}">
-                                    <div class="card-front text-xs">
-                                        <h4 class="text-sm font-bold text-center mb-1 w-full truncate">${cardInstance.name}</h4>
-                                        <img src="${cardDef.img}" onerror="this.onerror=null;this.src='https://placehold.co/150x150/5082E4/FFFFFF?text=${cardInstance.name.substring(0, 10)}'" class="w-20 h-20 rounded-full object-cover mb-1">
-                                        <div class="stats w-full text-left text-xs mb-1">
-                                            <p class="text-red-400">HP: ${cardInstance.hp} / ${cardInstance.maxHp}</p>
-                                            <p class="text-green-400">ATK: ??</p>
-                                            <p class="text-blue-400">DEF: ??</p>
-                                        </div>
-                                        <p class="text-xs font-semibold text-center mt-auto">Abilità: ${cardInstance.ability}</p>
+                // Costruisci la card HTML
+                const cardHtml = document.createElement('div');
+                cardHtml.className = `relative transition-all duration-300 transform ${isMe ? 'hover:-translate-y-2' : ''}`;
+                
+                // Immagine e stat
+                const imgUrl = cardDef.img || `https://placehold.co/150x150/5082E4/FFFFFF?text=${cardInstance.name}`;
+                
+                cardHtml.innerHTML = `
+                    <div class="card-container" style="height: 180px; width: 120px;">
+                        <div class="card ability-${cardDef.ability.toLowerCase()} ${borderClass}">
+                            <div class="card-front text-xs p-2">
+                                <h4 class="text-xs font-bold text-center mb-1 w-full card-name-text leading-tight" title="${cardInstance.name}">${cardInstance.name}</h4>
+                                <img src="${imgUrl}" onerror="this.onerror=null;this.src='https://placehold.co/150x150/5082E4/FFFFFF?text=X'" class="w-16 h-16 rounded-full object-cover mb-1 border border-gray-500 bg-gray-900">
+                                
+                                <div class="w-full text-center mt-1">
+                                    <div class="bg-gray-900 rounded px-1 mb-1">
+                                        <span class="text-red-400 font-bold">${cardInstance.hp}</span> <span class="text-gray-500">/</span> <span class="text-gray-400">${cardInstance.maxHp}</span> HP
+                                    </div>
+                                    <div class="flex justify-between text-[10px] px-1">
+                                        <span class="text-green-400">ATK ${cardInstance.attack}</span>
+                                        <span class="text-blue-400">DEF ${cardInstance.defense}</span>
                                     </div>
                                 </div>
-                                ${targetButton}
                             </div>
-                        `;
-                    });
-                } else {
-                    fieldHtml = `<p class="text-gray-500 mt-8">Giocatore Sconfitto o Campo Vuoto</p>`;
-                }
-
-                container.innerHTML += `
-                    <div class="w-full lg:w-1/2 p-4 bg-gray-900 rounded-lg shadow-inner">
-                        <h4 class="text-lg font-bold mb-2 text-center ${isAlive ? 'text-white' : 'text-red-600'}">
-                            ${opponent.name} (${opponent.defeatedCount} Sconfitti)
-                        </h4>
-                        <div class="flex flex-wrap gap-3 justify-center">
-                            ${fieldHtml}
                         </div>
                     </div>
                 `;
+
+                // Logica click per selezione/target
+                cardHtml.onclick = () => {
+                    if (isMe && isMyTurn && !selectedMove) {
+                        setActiveCard(cardInstance.uniqueId);
+                    } else if (!isMe && isMyTurn && selectedMove) {
+                        setTarget(pId, index);
+                    }
+                };
+
+                cardsDiv.appendChild(cardHtml);
             });
+
+            container.appendChild(cardsDiv);
         };
 
         const handleReplacementSelection = (myData, defeatedUniqueId) => {
@@ -1225,7 +1327,7 @@
                     <div class="card-container" onclick="submitReplacement('${cardId}', '${defeatedUniqueId}')">
                         <div class="card ability-${cardDef.ability.toLowerCase()}">
                             <div class="card-front text-xs justify-center p-3">
-                                <h4 class="text-sm font-bold text-center mb-1 w-full truncate">${cardDef.name}</h4>
+                                <h4 class="text-sm font-bold text-center mb-1 w-full card-name-text">${cardDef.name}</h4>
                                 <img src="${imgUrl}" onerror="this.onerror=null;this.src='https://placehold.co/150x150/5082E4/FFFFFF?text=${cardDef.name.substring(0, 10)}'" class="w-16 h-16 rounded-full object-cover mb-2">
                                 <p class="text-xs text-red-400">HP: ${cardDef.maxHp}</p>
                                 <button class="mt-2 w-full py-1 text-xs rounded bg-green-600 hover:bg-green-700">Sostituisci</button>
@@ -1263,14 +1365,10 @@
             const activeCardSelectionEl = document.getElementById('active-card-selection');
             activeCardSelectionEl.innerHTML = '';
 
-            // Seleziona Carta Attiva
+            // Seleziona Carta Attiva (Genera bottoni solo se non si clicca sulla carta grafica)
             myData.field.forEach(cardInstance => {
                 const isSelected = selectedActiveCardId === cardInstance.uniqueId;
-                activeCardSelectionEl.innerHTML += `
-                    <button onclick="setActiveCard('${cardInstance.uniqueId}')" class="p-2 rounded-lg transition duration-200 ${isSelected ? 'bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}">
-                        ${cardInstance.name}
-                    </button>
-                `;
+                // Opzionale: pulsanti testuali se preferisci non cliccare sulle carte grafiche
             });
 
             // Seleziona Mossa
@@ -1280,20 +1378,23 @@
 
             if (selectedActiveCardId) {
                 const activeCard = myData.field.find(c => c.uniqueId === selectedActiveCardId);
+                // Se la carta è morta o non trovata, resetta
+                if (!activeCard) { resetMoveSelection(); return; }
+
                 document.getElementById('selected-card-move-name').textContent = activeCard.name;
                 moveSelectionEl.innerHTML = `<h5 class="text-md font-semibold text-gray-400">Mosse di ${activeCard.name}:</h5>`;
 
                 activeCard.moves.forEach((move, index) => {
                     const isSelected = selectedMove && selectedMove.name === move.name;
                     moveSelectionEl.innerHTML += `
-                        <button onclick="selectMove('${index}')" class="p-2 rounded-lg transition duration-200 ${isSelected ? 'bg-green-700' : 'bg-yellow-600 hover:bg-yellow-700'}">
-                            ${move.name} (Dmg: ${move.damage}, Bersagli: ${move.targets})
+                        <button onclick="selectMove('${index}')" class="p-2 rounded-lg transition duration-200 w-full text-left ${isSelected ? 'bg-green-700' : 'bg-yellow-600 hover:bg-yellow-700'}">
+                            ${move.name} <span class="text-xs opacity-75 float-right">Dmg: ${move.damage}</span>
                         </button>
                     `;
                 });
             } else {
                 document.getElementById('selected-card-move-name').textContent = '...';
-                moveSelectionEl.innerHTML = '<p class="text-center text-gray-500">Seleziona una carta attiva.</p>';
+                moveSelectionEl.innerHTML = '<p class="text-center text-gray-400 italic">Clicca su una tua carta sul tavolo per iniziare.</p>';
                 targetSelectionEl.classList.add('hidden');
                 executeBtn.disabled = true;
                 return;
@@ -1302,7 +1403,13 @@
             // Seleziona Bersaglio
             if (selectedMove) {
                 targetSelectionEl.classList.remove('hidden');
-                executeBtn.disabled = false;
+                if (selectedTargetPlayerId) {
+                    executeBtn.disabled = false;
+                    executeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                } else {
+                    executeBtn.disabled = true;
+                    executeBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
             } else {
                 targetSelectionEl.classList.add('hidden');
                 executeBtn.disabled = true;
@@ -1314,7 +1421,7 @@
             selectedMove = null; // Resetta la mossa
             selectedTargetPlayerId = null; // Resetta il bersaglio
             selectedTargetCardIndex = null;
-            renderGame({ id: currentRoomId, gameState: currentGameState, status: 'playing', players: currentGameState.playerData });
+            renderGame({ id: currentRoomId, gameState: currentGameState, status: 'playing', players: currentGameState.playerData, mode: document.getElementById('game-mode-display').textContent, hostId: userId }); // HostId non è critico qui per il render
         };
 
         window.selectMove = (moveIndex) => {
@@ -1322,13 +1429,13 @@
             selectedMove = activeCard.moves[moveIndex];
             selectedTargetPlayerId = null; // Resetta il bersaglio
             selectedTargetCardIndex = null;
-            renderGame({ id: currentRoomId, gameState: currentGameState, status: 'playing', players: currentGameState.playerData });
+            renderGame({ id: currentRoomId, gameState: currentGameState, status: 'playing', players: currentGameState.playerData, mode: document.getElementById('game-mode-display').textContent, hostId: userId });
         };
 
         window.setTarget = (playerId, cardIndex) => {
             selectedTargetPlayerId = playerId;
             selectedTargetCardIndex = cardIndex;
-            renderGame({ id: currentRoomId, gameState: currentGameState, status: 'playing', players: currentGameState.playerData });
+            renderGame({ id: currentRoomId, gameState: currentGameState, status: 'playing', players: currentGameState.playerData, mode: document.getElementById('game-mode-display').textContent, hostId: userId });
         };
 
         document.getElementById('execute-move-btn').addEventListener('click', async () => {
@@ -1383,12 +1490,12 @@
                         const finalDamage = Math.max(1, damage - effectiveDefense); // Minimo 1 danno
                         targetCard.hp -= finalDamage;
 
-                        newLogEntry = `${actingPlayer.name} usa ${move.moveName} con ${activeCard.name} su ${targetCard.name} di ${targetPlayer.name} per ${finalDamage} danni.`;
+                        newLogEntry = `${actingPlayer.name} usa ${move.moveName} su ${targetCard.name} (-${finalDamage} HP)`;
 
                         // Verifica sconfitta
                         if (targetCard.hp <= 0) {
                             targetCard.hp = 0;
-                            newLogEntry += ` ${targetCard.name} è stato SCONFITTO!`;
+                            newLogEntry += ` -> SCONFITTO!`;
                             targetPlayer.defeatedCount += 1;
                             targetPlayer.field.splice(move.targetCardIndex, 1); // Rimuovi dal campo
 
@@ -1419,13 +1526,13 @@
                         player.deck.splice(cardIndexInDeck, 1);
                         const newCardInstance = createCardInstance(newCardId, move.playerId);
                         player.field.push(newCardInstance);
-                        newLogEntry = `${player.name} sostituisce con ${newCardInstance.name}.`;
+                        newLogEntry = `${player.name} schiera ${newCardInstance.name}.`;
                     } else {
-                        newLogEntry = `${player.name} non ha trovato la carta nel deck.`;
+                        newLogEntry = `${player.name} ha problemi col deck.`;
                     }
                 } else {
                     // Nessun rimpiazzo (deck vuoto o scelta)
-                    newLogEntry = `${player.name} non ha carte da rimpiazzare.`;
+                    newLogEntry = `${player.name} non può rimpiazzare.`;
                 }
 
                 // Resetta lo stato di rimpiazzo
@@ -1466,6 +1573,8 @@
         async function executeCPUMove() {
             const cpuId = currentGameState.playerOrder[currentGameState.currentPlayerIndex];
             const cpuData = currentGameState.playerData[cpuId];
+            
+            console.log(`Esecuzione mossa CPU per ${cpuData.name}...`);
 
             if (currentGameState.status === 'select_replacement' && currentGameState.replacementNeededForPlayer === cpuId) {
                 // Mossa di rimpiazzo CPU
